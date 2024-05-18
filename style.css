@@ -1,0 +1,23 @@
+window {
+  padding: 10px 15px;
+  border: solid 2px #d35d6e;
+  border-radius: 10px;
+  background-color: #100e23;
+}
+
+box {
+  margin: 10px 15px;
+}
+
+label {
+  font-size: 18px;
+  color: #ffd5cd;
+}
+
+progressbar {
+  margin: 10px 15px;
+}
+
+progress {
+  background: #d35d6e;
+}

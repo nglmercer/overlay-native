@@ -8,7 +8,6 @@ use x11rb::protocol::xproto::{ConnectionExt, PropMode};
 use x11rb::rust_connection::{DefaultStream, RustConnection};
 
 use crate::window::Window;
-use crate::NumWithUnit;
 
 x11rb::atom_manager! {
     pub AtomCollection: AtomCollectionCookie {
@@ -39,20 +38,14 @@ x11rb::atom_manager! {
 
 pub struct X11BackendConnection {
     conn: RustConnection<DefaultStream>,
-    root_window: u32,
     atoms: AtomCollection,
 }
 
 impl X11BackendConnection {
     pub fn new() -> Result<Self> {
-        let (conn, screen_num) = RustConnection::connect(None)?;
-        let screen = conn.setup().roots[screen_num].clone();
+        let (conn, _) = RustConnection::connect(None)?;
         let atoms = AtomCollection::new(&conn)?.reply()?;
-        Ok(X11BackendConnection {
-            conn,
-            root_window: screen.root,
-            atoms,
-        })
+        Ok(X11BackendConnection { conn, atoms })
     }
 
     pub fn set_xprops_for(&self, window: &Window, monitor: Monitor) -> Result<()> {
@@ -65,12 +58,10 @@ impl X11BackendConnection {
             .downcast_ref::<gdkx11::X11Window>()
             .context("Failed to get x11 window for gtk window")?
             .xid() as u32;
-        let root_window_geometry = self.conn.get_geometry(self.root_window)?.reply()?;
 
         let mon_x = scale_factor * monitor_rect.x() as u32;
         let mon_y = scale_factor * monitor_rect.y() as u32;
         let mon_end_x = scale_factor * (monitor_rect.x() + monitor_rect.width()) as u32 - 1u32;
-        let mon_end_y = scale_factor * (monitor_rect.y() + monitor_rect.height()) as u32 - 1u32;
 
         // let dist = match strut_def.side {
         //     Side::Left | Side::Right => {
@@ -80,29 +71,29 @@ impl X11BackendConnection {
         //         strut_def.distance.pixels_relative_to(monitor_rect.height()) as u32
         //     }
         // };
-        let dist = NumWithUnit::Pixels(0).pixels_relative_to(monitor_rect.width()) as u32;
+        let dist: u32 = 0;
 
         // don't question it,.....
         // it's how the X gods want it to be.
         // left, right, top, bottom, left_start_y, left_end_y, right_start_y, right_end_y, top_start_x, top_end_x, bottom_start_x, bottom_end_x
         #[rustfmt::skip]
         let strut_list: Vec<u8> = match Side::Top {
-            Side::Left => vec![
-                dist + mon_x, 0,   0, 0,
-                mon_x, mon_end_y,  0, 0,
-                0, 0,              0, 0],
-            Side::Right => vec![
-                0, root_window_geometry.width as u32 - mon_end_x + dist,   0, 0,
-                0, 0,                                                      mon_x, mon_end_y,
-                0, 0,                                                      0, 0],
+            // Side::Left => vec![
+            //     dist + mon_x, 0,   0, 0,
+            //     mon_x, mon_end_y,  0, 0,
+            //     0, 0,              0, 0],
+            // Side::Right => vec![
+            //     0, root_window_geometry.width as u32 - mon_end_x + dist,   0, 0,
+            //     0, 0,                                                      mon_x, mon_end_y,
+            //     0, 0,                                                      0, 0],
             Side::Top => vec![
                 0, 0,              dist + mon_y, 0,
                 0, 0,              0, 0,
                 mon_x, mon_end_x,  0, 0],
-            Side::Bottom => vec![
-                0, 0,   0, root_window_geometry.height as u32 - mon_end_y + dist,
-                0, 0,   0, 0,
-                0, 0,   mon_x, mon_end_x],
+            // Side::Bottom => vec![
+            //     0, 0,   0, root_window_geometry.height as u32 - mon_end_y + dist,
+            //     0, 0,   0, 0,
+            //     0, 0,   mon_x, mon_end_x],
             // This should never happen but if it does the window will be anchored on the
             // right of the screen
         }
@@ -178,7 +169,4 @@ impl X11BackendConnection {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Side {
     Top,
-    Left,
-    Right,
-    Bottom,
 }
