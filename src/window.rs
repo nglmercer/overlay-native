@@ -91,9 +91,12 @@ pub struct SpawnedWindow {
 }
 
 pub fn init_window(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> Window {
-    if cfg!(target_os = "linux") {
+    #[cfg(target_os = "linux")]
+    {
         crate::x11::a(pos, monitor_geometry)
-    } else {
+    } 
+    #[cfg(not(target_os = "linux"))]
+    {
         Window::new(gtk::WindowType::Toplevel, pos.0, pos.1)
     }
 }
