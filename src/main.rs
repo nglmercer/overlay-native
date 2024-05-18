@@ -1,6 +1,9 @@
 mod connection;
 mod window;
 
+#[cfg(target_os = "linux")]
+pub mod x11;
+
 extern crate gdkx11;
 extern crate x11rb;
 
