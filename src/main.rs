@@ -4,7 +4,9 @@ mod window;
 #[cfg(target_os = "linux")]
 pub mod x11;
 
+#[cfg(target_os = "linux")]
 extern crate gdkx11;
+#[cfg(target_os = "linux")]
 extern crate x11rb;
 
 use gdk::prelude::MonitorExt;
