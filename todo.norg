@@ -1,0 +1,15 @@
+- ( ) load_from_cache
+  Implement `load_from_cache`, the load/save priority for emote cache is the following:
+  ~ Memory Cache
+  ~ Local Files
+  ~ Remote request
+
+  @code rust
+  if let Some(pixbuf) = load_from_cache(id).await {
+      if let Some(animation) = pixbuf.animation().as_ref() {
+          img.set_pixbuf_animation(Some(animation));
+      } else {
+          img.set_pixbuf(pixbuf.pixbuf().as_ref())
+      }
+  }
+  @end

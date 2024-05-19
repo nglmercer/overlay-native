@@ -1,0 +1,10 @@
+prefix=/usr/x86_64-w64-mingw32
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: GTK+
+Description: GTK+ Graphical UI Library
+Version: 3.24.29
+Libs: -L${libdir} -lgtk-3 -lgdk-3 -lpangocairo-1.0 -lpango-1.0 -latk-1.0 -lcairo-gobject -lcairo -lgdk_pixbuf-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0
+Cflags: -I${includedir}/gtk-3.0 -I${includedir}/glib-2.0 -I${includedir}/cairo -I${includedir}/pango-1.0 -I${includedir}/atk-1.0

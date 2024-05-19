@@ -1,4 +1,3 @@
-use std::fmt;
 
 use anyhow::{Context, Result};
 use gdk::prelude::MonitorExt;
@@ -9,7 +8,7 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConnectionExt, PropMode};
 use x11rb::rust_connection::{DefaultStream, RustConnection};
 
-use crate::window::{Window, get_gdk_monitor};
+use crate::window::{Window, get_gdk_monitor, WindowGeometry, AnchorPoint, AnchorAlignment, Coords};
 
 x11rb::atom_manager! {
     pub AtomCollection: AtomCollectionCookie {
@@ -173,7 +172,7 @@ pub enum Side {
     Top,
 }
 
-pub fn a(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> crate::window::Window {
+pub fn a(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> (Option<WindowGeometry>, crate::window::Window) {
     let geometry = WindowGeometry {
         anchor_point: AnchorPoint {
             x: AnchorAlignment::START,
@@ -217,7 +216,7 @@ pub fn a(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> crate::window::Wi
     // run on_screen_changed to set the visual correctly initially.
     on_screen_changed(&w, None);
     w.connect_screen_changed(on_screen_changed);
-    return w;
+    ( Some(geometry), w )
 }
 
 pub fn b(w: crate::window::Window, monitor_geometry: gdk::Rectangle, geometry: WindowGeometry) {
@@ -279,118 +278,4 @@ pub fn get_window_rectangle(
             .y
             .alignment_to_coordinate(height, screen_rect.height());
     gdk::Rectangle::new(x, y, width, height)
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct WindowGeometry {
-    pub anchor_point: AnchorPoint,
-    pub offset: Coords,
-    pub size: Coords,
-}
-
-impl std::fmt::Display for WindowGeometry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{} ({})", self.offset, self.size, self.anchor_point)
-    }
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
-pub struct AnchorPoint {
-    pub x: AnchorAlignment,
-    pub y: AnchorAlignment,
-}
-
-impl std::fmt::Display for AnchorPoint {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use AnchorAlignment::*;
-        match (self.x, self.y) {
-            (CENTER, CENTER) => write!(f, "center"),
-            (x, y) => write!(
-                f,
-                "{} {}",
-                match x {
-                    START => "left",
-                    CENTER => "center",
-                    END => "right",
-                },
-                match y {
-                    START => "top",
-                    CENTER => "center",
-                    END => "bottom",
-                }
-            ),
-        }
-    }
-}
-
-#[allow(unused)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum AnchorAlignment {
-    START,
-    CENTER,
-    END,
-}
-
-impl Default for AnchorAlignment {
-    fn default() -> Self {
-        Self::START
-    }
-}
-
-impl AnchorAlignment {
-    pub fn alignment_to_coordinate(&self, size_inner: i32, size_container: i32) -> i32 {
-        match self {
-            AnchorAlignment::START => 0,
-            AnchorAlignment::CENTER => (size_container / 2) - (size_inner / 2),
-            AnchorAlignment::END => size_container - size_inner,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Default)]
-pub struct Coords {
-    pub x: i32,
-    pub y: i32,
-}
-
-impl fmt::Debug for Coords {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "CoordsWithUnits({}, {})", self.x, self.y)
-    }
-}
-
-impl fmt::Display for Coords {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {})", self.x, self.y)
-    }
-}
-
-impl Coords {
-    pub fn from_pixels((x, y): (i32, i32)) -> Self {
-        Coords { x, y }
-    }
-
-    /// resolve the possibly relative coordinates relative to a given containers size
-    pub fn relative_to(&self) -> (i32, i32) {
-        (self.x, self.y)
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum NumWithUnit {
-    Pixels(i32),
-}
-
-impl fmt::Display for NumWithUnit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Pixels(p) => write!(f, "{p}px"),
-        }
-    }
-}
-
-impl Default for NumWithUnit {
-    fn default() -> Self {
-        Self::Pixels(0)
-    }
 }

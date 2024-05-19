@@ -1,3 +1,5 @@
+use std::fmt;
+
 use gdk::Monitor;
 use tokio::time::Instant;
 use twitch_irc::message::Emote;
@@ -90,14 +92,14 @@ pub struct SpawnedWindow {
     pub created: Instant,
 }
 
-pub fn init_window(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> Window {
+pub fn init_window(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> (Option<WindowGeometry>, Window) {
     #[cfg(target_os = "linux")]
     {
         crate::x11::a(pos, monitor_geometry)
     } 
     #[cfg(not(target_os = "linux"))]
     {
-        Window::new(gtk::WindowType::Toplevel, pos.0, pos.1)
+        (None, Window::new(gtk::WindowType::Toplevel, pos.0, pos.1))
     }
 }
 
@@ -108,7 +110,7 @@ pub async fn spawn_window(
     pos: (i32, i32),
     monitor_geometry: gdk::Rectangle,
 ) -> SpawnedWindow {
-    let w = init_window(pos, monitor_geometry);
+    let (geometry, w) = init_window(pos, monitor_geometry);
 
     let progress = {
         let layout = gtk::Box::new(gtk::Orientation::Vertical, 5);
@@ -133,7 +135,6 @@ pub async fn spawn_window(
             let img = load_emote(emote_id).await;
 
             messagebox.add(&img);
-            // img.load_from_
         }
 
         let plain = start..message.len();
@@ -153,6 +154,12 @@ pub async fn spawn_window(
     };
 
     w.realize();
+
+    #[cfg(target_os = "linux")]
+    {
+        crate::x11::b(w.clone(), monitor_geometry, geometry.unwrap())
+    }
+
     w.show_all();
 
     SpawnedWindow {
@@ -165,6 +172,7 @@ pub async fn spawn_window(
 async fn load_emote(id: &str) -> gtk::Image {
     let img = gtk::Image::new();
 
+    // TODO: load_from cache
     if let Some(pixbuf) = load_emote_(id, "animated", "image/gif").await {
         img.set_pixbuf_animation(pixbuf.animation().as_ref());
     } else if let Some(pixbuf) = load_emote_(id, "static", "image/png").await {
@@ -207,4 +215,118 @@ pub fn get_gdk_monitor() -> Monitor {
             .expect("Failed to get primary monitor from GTK. Try explicitly specifying the monitor on your window.");
 
     monitor
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct WindowGeometry {
+    pub anchor_point: AnchorPoint,
+    pub offset: Coords,
+    pub size: Coords,
+}
+
+impl std::fmt::Display for WindowGeometry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{} ({})", self.offset, self.size, self.anchor_point)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+pub struct AnchorPoint {
+    pub x: AnchorAlignment,
+    pub y: AnchorAlignment,
+}
+
+impl std::fmt::Display for AnchorPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use AnchorAlignment::*;
+        match (self.x, self.y) {
+            (CENTER, CENTER) => write!(f, "center"),
+            (x, y) => write!(
+                f,
+                "{} {}",
+                match x {
+                    START => "left",
+                    CENTER => "center",
+                    END => "right",
+                },
+                match y {
+                    START => "top",
+                    CENTER => "center",
+                    END => "bottom",
+                }
+            ),
+        }
+    }
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum AnchorAlignment {
+    START,
+    CENTER,
+    END,
+}
+
+impl Default for AnchorAlignment {
+    fn default() -> Self {
+        Self::START
+    }
+}
+
+impl AnchorAlignment {
+    pub fn alignment_to_coordinate(&self, size_inner: i32, size_container: i32) -> i32 {
+        match self {
+            AnchorAlignment::START => 0,
+            AnchorAlignment::CENTER => (size_container / 2) - (size_inner / 2),
+            AnchorAlignment::END => size_container - size_inner,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Default)]
+pub struct Coords {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl fmt::Debug for Coords {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "CoordsWithUnits({}, {})", self.x, self.y)
+    }
+}
+
+impl fmt::Display for Coords {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
+impl Coords {
+    pub fn from_pixels((x, y): (i32, i32)) -> Self {
+        Coords { x, y }
+    }
+
+    /// resolve the possibly relative coordinates relative to a given containers size
+    pub fn relative_to(&self) -> (i32, i32) {
+        (self.x, self.y)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum NumWithUnit {
+    Pixels(i32),
+}
+
+impl fmt::Display for NumWithUnit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Pixels(p) => write!(f, "{p}px"),
+        }
+    }
+}
+
+impl Default for NumWithUnit {
+    fn default() -> Self {
+        Self::Pixels(0)
+    }
 }

@@ -41,6 +41,7 @@ async fn main() {
     );
 
     let monitor_geometry = get_gdk_monitor().geometry();
+    println!("{monitor_geometry:#?}");
     let mut position_idx = 0;
     let positions = {
         let monitor_width = (monitor_geometry.width() - 40 - 200) / 100;
@@ -78,7 +79,7 @@ async fn main() {
     windows_count += 1;
     windows_count %= total_windows;
 
-    client.join("thegrefg".to_owned()).unwrap();
+    client.join("apika_luca".to_owned()).unwrap();
 
     let mut gtk_loop = tokio::time::interval(Duration::from_millis(10));
 
