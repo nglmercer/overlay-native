@@ -136,7 +136,7 @@ impl X11BackendConnection {
         // };
         let ty =
             // X11WindowType::Dock => 
-        self.atoms._NET_WM_WINDOW_TYPE_DOCK;
+        // self.atoms._NET_WM_WINDOW_TYPE_DOCK;
         // X11WindowType::Normal =>
         // self.atoms._NET_WM_WINDOW_TYPE_NORMAL
         // X11WindowType::Dialog =>
@@ -146,7 +146,7 @@ impl X11BackendConnection {
         // X11WindowType::Utility =>
         // self.atoms._NET_WM_WINDOW_TYPE_UTILITY
         // X11WindowType::Desktop =>
-        // self.atoms._NET_WM_WINDOW_TYPE_DESKTOP
+        self.atoms._NET_WM_WINDOW_TYPE_DESKTOP;
         // X11WindowType::Notification =>
         // self.atoms._NET_WM_WINDOW_TYPE_NOTIFICATION
 
@@ -193,8 +193,8 @@ pub fn a(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> (Option<WindowGeo
     };
     let w = crate::window::Window::new(window_type, x, y);
     w.set_resizable(false);
-    w.set_keep_above(true);
-    w.set_keep_below(false);
+    w.set_keep_above(false);
+    w.set_keep_below(true);
     if true {
         w.stick();
     } else {
