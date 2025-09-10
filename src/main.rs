@@ -125,7 +125,7 @@ async fn main() {
     windows_count += 1;
     windows_count %= total_windows;
 
-    client.join("mictia00".to_owned()).unwrap();
+    client.join("apika_luca".to_owned()).unwrap();
 
     #[cfg(unix)]
     let mut gtk_loop = tokio::time::interval(Duration::from_millis(10));
