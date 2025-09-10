@@ -68,7 +68,7 @@ impl WindowsWindow {
             let window_width = text_width.min(400).max(200);
             
             let hwnd = CreateWindowExW(
-                WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+                WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
                 class_name.as_ptr(),
                 window_name.as_ptr(),
                 WS_POPUP,

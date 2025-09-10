@@ -1,0 +1,17 @@
+{
+  "platform": {
+    "type": "twitch",
+    "default_channel": "gohuntleo",
+    "username": "USERNAME"
+  },
+  "window": {
+    "message_duration_seconds": 10,
+    "max_windows": 100,
+    "test_message": "TEST"
+  },
+  "display": {
+    "monitor_margin": 40,
+    "window_size": 200,
+    "grid_size": 100
+  }
+}

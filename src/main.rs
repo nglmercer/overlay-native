@@ -1,4 +1,6 @@
 mod connection;
+mod config;
+mod twitch;
 
 #[cfg(unix)]
 mod window;
@@ -14,12 +16,11 @@ extern crate gdkx11;
 extern crate x11rb;
 
 use rand::seq::SliceRandom;
-use twitch_irc::login::StaticLoginCredentials;
-use twitch_irc::message::{PrivmsgMessage, ServerMessage};
-use twitch_irc::TwitchIRCClient;
-use twitch_irc::{ClientConfig, SecureTCPTransport};
-
 use std::time::Duration;
+
+use crate::config::Config;
+use crate::connection::{ChatMessage, PlatformManager};
+use crate::twitch::TwitchPlatform;
 
 #[cfg(unix)]
 use gdk::prelude::MonitorExt;
@@ -33,10 +34,20 @@ use windows::{WindowsWindow, get_monitor_geometry, process_messages};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    // default configuration is to join chat as anonymous.
-    let config: ClientConfig<StaticLoginCredentials> = ClientConfig::default();
-    let (mut incoming_messages, client) =
-        TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
+    // Cargar configuración desde JSON
+    let config = Config::load_default().unwrap_or_else(|e| {
+        eprintln!("Error loading config: {}, using defaults", e);
+        Config::default()
+    });
+    
+    // Crear el manager de plataformas
+    let mut platform_manager = PlatformManager::new();
+    
+    // Crear e inicializar la plataforma de Twitch
+    let twitch_platform = TwitchPlatform::new();
+    platform_manager.run_platform(twitch_platform, config.platform.default_channel.clone())
+        .await
+        .expect("Failed to start Twitch platform");
 
     #[cfg(unix)]
     {
@@ -63,21 +74,21 @@ async fn main() {
     let positions = {
         #[cfg(unix)]
         let (monitor_width, monitor_height) = {
-            let monitor_width = (monitor_geometry.width() - 40 - 200) / 100;
-            let monitor_height = (monitor_geometry.height() - 40 - 200) / 100;
+            let monitor_width = (monitor_geometry.width() - config.display.monitor_margin - config.display.window_size) / config.display.grid_size;
+            let monitor_height = (monitor_geometry.height() - config.display.monitor_margin - config.display.window_size) / config.display.grid_size;
             (monitor_width, monitor_height)
         };
         #[cfg(windows)]
         let (monitor_width, monitor_height) = {
-            let monitor_width = (monitor_geometry.width - 40 - 200) / 100;
-            let monitor_height = (monitor_geometry.height - 40 - 200) / 100;
+            let monitor_width = (monitor_geometry.width - config.display.monitor_margin - config.display.window_size) / config.display.grid_size;
+            let monitor_height = (monitor_geometry.height - config.display.monitor_margin - config.display.window_size) / config.display.grid_size;
             (monitor_width, monitor_height)
         };
 
         let mut p = Vec::new();
 
-        for x in 0..100 {
-            for y in 0..100 {
+        for x in 0..config.display.grid_size {
+            for y in 0..config.display.grid_size {
                 p.push((x * monitor_width, y * monitor_height));
             }
         }
@@ -88,7 +99,7 @@ async fn main() {
     };
 
     let mut windows_count = 0;
-    let total_windows = 100;
+    let total_windows = config.window.max_windows;
     
     #[cfg(unix)]
     let windows: &mut [Option<SpawnedWindow>] = &mut vec![None; total_windows];
@@ -99,8 +110,8 @@ async fn main() {
     {
         windows[windows_count] = Some(
             spawn_window(
-                "USERNAME",
-                "TEST",
+                &config.platform.username,
+                &config.window.test_message,
                 &[],
                 positions[position_idx],
                 monitor_geometry,
@@ -112,8 +123,8 @@ async fn main() {
     {
         windows[windows_count] = Some(
             WindowsWindow::new(
-                "USERNAME",
-                "TEST",
+                &config.platform.username,
+                &config.window.test_message,
                 &[],
                 positions[position_idx],
             )
@@ -124,8 +135,6 @@ async fn main() {
     position_idx %= positions.len();
     windows_count += 1;
     windows_count %= total_windows;
-
-    client.join("apika_luca".to_owned()).unwrap();
 
     #[cfg(unix)]
     let mut gtk_loop = tokio::time::interval(Duration::from_millis(10));
@@ -148,25 +157,25 @@ async fn main() {
         }
 
         let now = tokio::time::Instant::now();
-        const MAX_TIME: Duration = Duration::from_secs(10);
+        let max_time = config.message_duration();
 
         for win in windows.iter_mut().filter(|x| x.is_some()) {
             let spawned_win = win.as_ref().unwrap();
 
             let elapsed = now - spawned_win.created;
-            if elapsed >= MAX_TIME {
+            if elapsed >= max_time {
                 #[cfg(unix)]
                 spawned_win.w.close();
                 #[cfg(windows)]
                 spawned_win.close();
                 *win = None;
             } else {
-                let progress = elapsed.as_secs_f64() / MAX_TIME.as_secs_f64();
+                let progress = elapsed.as_secs_f64() / max_time.as_secs_f64();
                 #[cfg(unix)]
                 spawned_win.progress.set_fraction(progress);
                 #[cfg(windows)]
                 {
-                    let mut spawned_win_mut = win.as_mut().unwrap();
+                    let spawned_win_mut = win.as_mut().unwrap();
                     spawned_win_mut.set_progress(progress);
                 }
             }
@@ -174,23 +183,17 @@ async fn main() {
 
         #[cfg(unix)]
         tokio::select! {
-            message = incoming_messages.recv() => {
+            message = platform_manager.next_message() => {
                 if let Some(message) = message {
-                    match message {
-                        ServerMessage::Privmsg(message) => {
-                            if let Some(win) = windows[windows_count].take() {
-                                win.w.close();
-                            }
-                            let win = handle_message(message, positions[position_idx], monitor_geometry).await;
-                            windows[windows_count] = Some(win);
-                            position_idx += 1;
-                            position_idx %= positions.len();
-                            windows_count += 1;
-                            windows_count %= total_windows;
-                        },
-                        ServerMessage::Ping(_) | ServerMessage::Pong(_) => {},
-                        _ => println!("{message:#?}")
-                    };
+                    if let Some(win) = windows[windows_count].take() {
+                        win.w.close();
+                    }
+                    let win = handle_message(message, positions[position_idx], monitor_geometry).await;
+                    windows[windows_count] = Some(win);
+                    position_idx += 1;
+                    position_idx %= positions.len();
+                    windows_count += 1;
+                    windows_count %= total_windows;
                 }
             },
             _ = gtk_loop.tick() => {}
@@ -198,23 +201,17 @@ async fn main() {
         
         #[cfg(windows)]
         tokio::select! {
-            message = incoming_messages.recv() => {
+            message = platform_manager.next_message() => {
                 if let Some(message) = message {
-                    match message {
-                        ServerMessage::Privmsg(message) => {
-                            if let Some(win) = windows[windows_count].take() {
-                                win.close();
-                            }
-                            let win = handle_message(message, positions[position_idx], monitor_geometry).await;
-                            windows[windows_count] = Some(win);
-                            position_idx += 1;
-                            position_idx %= positions.len();
-                            windows_count += 1;
-                            windows_count %= total_windows;
-                        },
-                        ServerMessage::Ping(_) | ServerMessage::Pong(_) => {},
-                        _ => println!("{message:#?}")
-                    };
+                    if let Some(win) = windows[windows_count].take() {
+                        win.close();
+                    }
+                    let win = handle_message(message, positions[position_idx], monitor_geometry).await;
+                    windows[windows_count] = Some(win);
+                    position_idx += 1;
+                    position_idx %= positions.len();
+                    windows_count += 1;
+                    windows_count %= total_windows;
                 }
             },
             _ = windows_loop.tick() => {}
@@ -224,14 +221,28 @@ async fn main() {
 
 #[cfg(unix)]
 async fn handle_message(
-    message: PrivmsgMessage,
+    message: ChatMessage,
     position: (i32, i32),
     monitor_geometry: gtk::Rectangle,
 ) -> SpawnedWindow {
+    // Convertir ChatEmote a los emotes esperados por spawn_window
+    let emotes: Vec<twitch_irc::message::Emote> = message.emotes.iter().map(|e| {
+        let char_range = if let Some((start, end)) = e.positions.first() {
+            *start..*end
+        } else {
+            0..0
+        };
+        twitch_irc::message::Emote {
+            id: e.id.clone(),
+            code: e.name.clone(),
+            char_range,
+        }
+    }).collect();
+    
     spawn_window(
-        &message.sender.name,
-        &message.message_text,
-        &message.emotes,
+        &message.username,
+        &message.content,
+        &emotes,
         position,
         monitor_geometry,
     )
@@ -240,14 +251,28 @@ async fn handle_message(
 
 #[cfg(windows)]
 async fn handle_message(
-    message: PrivmsgMessage,
+    message: ChatMessage,
     position: (i32, i32),
     _monitor_geometry: windows::WindowGeometry,
 ) -> WindowsWindow {
+    // Convertir ChatEmote a los emotes esperados por WindowsWindow
+    let emotes: Vec<twitch_irc::message::Emote> = message.emotes.iter().map(|e| {
+        let char_range = if let Some((start, end)) = e.positions.first() {
+            *start..*end
+        } else {
+            0..0
+        };
+        twitch_irc::message::Emote {
+            id: e.id.clone(),
+            code: e.name.clone(),
+            char_range,
+        }
+    }).collect();
+    
     WindowsWindow::new(
-        &message.sender.name,
-        &message.message_text,
-        &message.emotes,
+        &message.username,
+        &message.content,
+        &emotes,
         position,
     )
 }
