@@ -139,5 +139,3 @@ cargo build --release
 - ✅ Barra de progreso funcional
 - ✅ Gestión de memoria y limpieza
 - 🔄 Carga de emotes (implementado parcialmente)
-- ⏳ Configuración por archivo
-- ⏳ Interfaz gráfica de configuración
