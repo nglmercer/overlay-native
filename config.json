@@ -42,7 +42,7 @@
     },
     "kick": {
       "platform_type": "kick",
-      "enabled": false,
+      "enabled": true,
       "credentials": {
         "username": null,
         "oauth_token": null,
@@ -64,8 +64,8 @@
     {
       "id": "twitch_main",
       "platform": "twitch",
-      "channel": "folagorlives",
-      "enabled": false,
+      "channel": "bobicraftmc",
+      "enabled": true,
       "filters": {
         "min_message_length": null,
         "max_message_length": 500,
