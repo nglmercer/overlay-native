@@ -1,6 +1,6 @@
+use overlay_native::config::{Config, Credentials, PlatformConfig, PlatformSettings, PlatformType};
 use overlay_native::connection::{ConnectionInfo, PlatformManager};
-use overlay_native::platforms::{PlatformFactory, PlatformWrapperError};
-use std::collections::HashMap;
+use overlay_native::platforms::PlatformFactory;
 use tokio::time::{sleep, Duration};
 
 #[tokio::main]
@@ -15,14 +15,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let factory = PlatformFactory::new();
 
     // Try to create a mock platform for testing
-    match factory.create_platform("mock", HashMap::new()) {
+    let mock_config = PlatformConfig {
+        platform_type: PlatformType::Twitch,
+        enabled: true,
+        credentials: Credentials::default(),
+        settings: PlatformSettings::default(),
+    };
+    match factory.create_platform("twitch", mock_config).await {
         Ok(platform) => {
-            manager.register_platform("mock".to_string(), platform);
-            println!("✅ Mock platform registered successfully");
+            manager.register_platform("twitch".to_string(), platform);
+            println!("✅ Twitch platform registered successfully");
         }
         Err(e) => {
-            println!("⚠️ Could not create mock platform: {}", e);
-            println!("📝 Note: Mock platform might not be implemented yet");
+            println!("⚠️ Could not create Twitch platform: {}", e);
+            println!("📝 Note: Twitch platform might have configuration issues");
         }
     }
 
@@ -32,14 +38,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let test_connections = vec![
         ConnectionInfo {
             id: "test_conn_1".to_string(),
-            platform: "mock".to_string(),
+            platform: "twitch".to_string(),
             channel: "test_channel_1".to_string(),
             enabled: true,
             display_name: Some("Test Connection 1".to_string()),
         },
         ConnectionInfo {
             id: "test_conn_2".to_string(),
-            platform: "mock".to_string(),
+            platform: "twitch".to_string(),
             channel: "test_channel_2".to_string(),
             enabled: false,
             display_name: Some("Test Connection 2".to_string()),
@@ -156,10 +162,20 @@ async fn test_twitch_connection() -> Result<(), Box<dyn std::error::Error + Send
     let factory = PlatformFactory::new();
 
     // Try to create a Twitch platform
-    let mut twitch_config = HashMap::new();
-    twitch_config.insert("username".to_string(), "justinfan12345".to_string()); // Anonymous user
+    let twitch_config = PlatformConfig {
+        platform_type: PlatformType::Twitch,
+        enabled: true,
+        credentials: Credentials {
+            username: Some("justinfan12345".to_string()),
+            oauth_token: Some("oauth:1234567890abcdef".to_string()),
+            api_key: None,
+            client_id: None,
+            client_secret: None,
+        },
+        settings: PlatformSettings::default(),
+    };
 
-    match factory.create_platform("twitch", twitch_config) {
+    match factory.create_platform("twitch", twitch_config).await {
         Ok(platform) => {
             manager.register_platform("twitch".to_string(), platform);
             println!("✅ Twitch platform registered");

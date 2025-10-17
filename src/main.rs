@@ -18,7 +18,7 @@ extern crate gdkx11;
 extern crate x11rb;
 
 use rand::seq::SliceRandom;
-use std::collections::HashMap;
+
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -30,6 +30,128 @@ use crate::mapping::MappingSystem;
 use crate::platforms::{CredentialManager, PlatformFactory};
 
 use anyhow::Result;
+
+use tokio::sync::broadcast;
+
+/// Application events for the emitter system
+#[derive(Debug, Clone)]
+enum AppEvent {
+    MessageReceived(connection::ChatMessage),
+    WindowUpdate,
+    Shutdown,
+}
+
+/// Event emitter for decoupled communication
+struct EventEmitter {
+    sender: broadcast::Sender<AppEvent>,
+}
+
+/// Simple window tracker for basic management
+struct WindowTracker {
+    #[cfg(unix)]
+    windows: Arc<RwLock<Vec<SpawnedWindow>>>,
+    #[cfg(windows)]
+    windows: Arc<RwLock<Vec<WindowsWindow>>>,
+}
+
+impl WindowTracker {
+    fn new() -> Self {
+        #[cfg(unix)]
+        {
+            Self {
+                windows: Arc::new(RwLock::new(Vec::new())),
+            }
+        }
+        #[cfg(windows)]
+        {
+            Self {
+                windows: Arc::new(RwLock::new(Vec::new())),
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    async fn add_window(&self, window: SpawnedWindow) {
+        let mut windows = self.windows.write().await;
+        windows.push(window);
+    }
+
+    #[cfg(windows)]
+    async fn add_window(&self, window: WindowsWindow) {
+        let mut windows = self.windows.write().await;
+        windows.push(window);
+    }
+
+    async fn cleanup_expired(&self) {
+        let now = tokio::time::Instant::now();
+        let max_time = Duration::from_secs(10);
+
+        #[cfg(unix)]
+        {
+            let mut windows = self.windows.write().await;
+            windows.retain(|w| {
+                let elapsed = now - w.created;
+                if elapsed >= max_time {
+                    w.w.close();
+                    false
+                } else {
+                    let progress = elapsed.as_secs_f64() / max_time.as_secs_f64();
+                    w.progress.set_fraction(progress);
+                    true
+                }
+            });
+        }
+
+        #[cfg(windows)]
+        {
+            let mut windows = self.windows.write().await;
+            let mut windows_to_remove = Vec::new();
+
+            // First pass: identify windows to remove and update progress
+            for (i, w) in windows.iter().enumerate() {
+                let elapsed = now - w.created;
+                if elapsed >= max_time {
+                    windows_to_remove.push(i);
+                } else {
+                    let progress = elapsed.as_secs_f64() / max_time.as_secs_f64();
+                    // Create a mutable copy for progress update
+                    let mut w_copy = w.clone();
+                    w_copy.set_progress(progress);
+                }
+            }
+
+            // Second pass: remove expired windows
+            for &i in windows_to_remove.iter().rev() {
+                let w = windows.remove(i);
+                w.close();
+            }
+        }
+    }
+}
+
+impl Clone for WindowTracker {
+    fn clone(&self) -> Self {
+        Self {
+            windows: self.windows.clone(),
+        }
+    }
+}
+
+impl EventEmitter {
+    fn new() -> Self {
+        let (sender, _) = broadcast::channel(1000);
+        Self { sender }
+    }
+
+    fn emit(&self, event: AppEvent) -> Result<()> {
+        self.sender.send(event)?;
+        Ok(())
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<AppEvent> {
+        self.sender.subscribe()
+    }
+}
 
 #[cfg(unix)]
 use gdk::prelude::MonitorExt;
@@ -49,6 +171,8 @@ struct AppState {
     mapping_system: Arc<RwLock<MappingSystem>>,
     platform_factory: Arc<PlatformFactory>,
     credential_manager: Arc<CredentialManager>,
+    event_emitter: Arc<EventEmitter>,
+    window_tracker: Arc<WindowTracker>,
 }
 
 impl AppState {
@@ -66,6 +190,9 @@ impl AppState {
         let platform_factory = Arc::new(PlatformFactory::new());
         let credential_manager = Arc::new(CredentialManager::new());
 
+        let event_emitter = Arc::new(EventEmitter::new());
+        let window_tracker = Arc::new(WindowTracker::new());
+
         Ok(Self {
             config,
             platform_manager,
@@ -73,6 +200,8 @@ impl AppState {
             mapping_system,
             platform_factory,
             credential_manager,
+            event_emitter,
+            window_tracker,
         })
     }
 
@@ -163,8 +292,13 @@ impl AppState {
         let mut emote_system = self.emote_system.write().await;
 
         println!("🔄 Preloading global emotes...");
-        emote_system.preload_global_emotes().await?;
-        println!("✅ Global emotes preloaded");
+        match emote_system.preload_global_emotes().await {
+            Ok(_) => println!("✅ Global emotes preloaded"),
+            Err(e) => {
+                println!("⚠️ Failed to preload global emotes: {}", e);
+                println!("📝 Continuing without emote cache...");
+            }
+        }
 
         Ok(())
     }
@@ -173,66 +307,48 @@ impl AppState {
         &self,
         mut message: connection::ChatMessage,
     ) -> Result<connection::ChatMessage> {
-        eprintln!(
-            "[DEBUG] Processing message from {}: {} - {}",
-            message.platform, message.username, message.content
-        );
-
-        // Aplicar filtros si es necesario
+        // Apply filters if necessary
         if let Some(connection) = self
             .config
             .connections
             .iter()
             .find(|conn| conn.platform == message.platform && conn.channel == message.channel)
         {
-            eprintln!("[DEBUG] Found connection config for message");
             let mut manager = self.platform_manager.write().await;
             if let Some(platform) = manager.get_platform_mut(&message.platform) {
-                eprintln!("[DEBUG] Found platform for message processing");
                 if !connection.filters.commands_only
                     || message.content.starts_with('!')
                     || message.content.starts_with('/')
                 {
-                    eprintln!("[DEBUG] Applying message filters");
-                    // Aplicar filtros
-                    if !platform.apply_message_filters(&mut message, &connection.filters) {
-                        eprintln!("[DEBUG] Message filtered out");
+                    // Apply filters
+                    if !platform
+                        .lock()
+                        .await
+                        .apply_message_filters(&mut message, &connection.filters)
+                    {
                         return Err(anyhow::anyhow!("Message filtered out"));
                     }
-                    eprintln!("[DEBUG] Message passed filters");
                 } else {
-                    eprintln!("[DEBUG] Commands only filter active, message rejected");
                     return Err(anyhow::anyhow!("Commands only filter active"));
                 }
-            } else {
-                eprintln!(
-                    "[DEBUG] Platform not found for message: {}",
-                    message.platform
-                );
             }
-        } else {
-            eprintln!(
-                "[DEBUG] No connection config found for platform: {}, channel: {}",
-                message.platform, message.channel
-            );
         }
 
-        eprintln!("[DEBUG] Parsing additional emotes");
-        // Parsear emotes adicionales si es necesario
+        // Parse additional emotes if necessary
         let mut emote_system = self.emote_system.write().await;
         if let Ok(additional_emotes) = emote_system
             .parse_message_emotes(
                 &message.content,
                 &message.platform,
                 &message.channel,
-                "", // Datos de emotes crudos si existen
+                "", // Raw emote data if exists
             )
             .await
         {
             message.emotes.extend(additional_emotes);
         }
 
-        // Aplicar mapeo de datos
+        // Apply data mapping
         let mut mapping_system = self.mapping_system.write().await;
         let raw_message = mapping::RawPlatformMessage {
             platform: message.platform.clone(),
@@ -260,6 +376,42 @@ impl AppState {
         );
         Ok(message)
     }
+
+    /// Start background message processor that emits events
+    async fn start_message_processor(&self) {
+        let event_emitter = self.event_emitter.clone();
+        let platform_manager = self.platform_manager.clone();
+
+        tokio::spawn(async move {
+            let mut pm = platform_manager.write().await;
+            loop {
+                if let Some(message) = pm.next_message().await {
+                    // Emit event directly without complex processing
+                    if let Err(e) = event_emitter.emit(AppEvent::MessageReceived(message)) {
+                        eprintln!("⚠️ Failed to emit message event: {}", e);
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        });
+    }
+
+    // Window management is now handled internally by WindowManager
+}
+
+impl Clone for AppState {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            platform_manager: self.platform_manager.clone(),
+            emote_system: self.emote_system.clone(),
+            mapping_system: self.mapping_system.clone(),
+            platform_factory: self.platform_factory.clone(),
+            credential_manager: self.credential_manager.clone(),
+            event_emitter: self.event_emitter.clone(),
+            window_tracker: self.window_tracker.clone(),
+        }
+    }
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -268,8 +420,6 @@ use gdk::Screen;
 #[cfg(unix)]
 use gtk::{StyleContext, STYLE_PROVIDER_PRIORITY_APPLICATION};
 use rand::prelude::*;
-
-use tokio::time::{self, Instant};
 
 #[cfg(unix)]
 fn get_gdk_monitor() -> gdk::Monitor {
@@ -286,7 +436,7 @@ fn get_monitor_geometry() -> gdk::Rectangle {
 }
 
 #[cfg(unix)]
-async fn spawn_window(
+fn spawn_window(
     username: &str,
     message: &str,
     emotes: &[crate::emotes::RenderedEmote],
@@ -301,7 +451,6 @@ async fn spawn_window(
     }
 }
 
-#[cfg(windows)]
 #[cfg(unix)]
 struct SpawnedWindow {
     w: gtk::Window,
@@ -315,7 +464,7 @@ struct PlatformMessage {
 }
 
 #[cfg(unix)]
-async fn handle_message(
+fn handle_message(
     message: crate::connection::ChatMessage,
     position: (i32, i32),
     monitor_geometry: gdk::Rectangle,
@@ -332,9 +481,12 @@ async fn handle_message(
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("🚀 Starting Overlay Native...");
+    eprintln!("[DEBUG] Main function started");
 
     // Inicializar estado de la aplicación
+    eprintln!("[DEBUG] Creating AppState...");
     let state = AppState::new().await?;
+    eprintln!("[DEBUG] AppState created successfully");
 
     // Inicializar plataformas
     state.initialize_platforms().await?;
@@ -410,58 +562,13 @@ async fn main() -> Result<()> {
         p
     };
 
-    // Inicializar ventanas
-    let mut windows_count = 0;
-    let total_windows = state.config.window.max_windows;
+    // Window management is now handled by AsyncWindowManager
+    // No need for manual window arrays
 
-    #[cfg(unix)]
-    let mut windows: Vec<Option<SpawnedWindow>> = vec![None; total_windows];
-    #[cfg(windows)]
-    let mut windows: Vec<Option<WindowsWindow>> = vec![None; total_windows];
-
-    // Ventana de prueba inicial
-    #[cfg(unix)]
-    {
-        windows[windows_count] = Some(
-            spawn_window(
-                &state
-                    .config
-                    .platforms
-                    .values()
-                    .next()
-                    .map(|p| p.credentials.username.clone().unwrap_or_default())
-                    .unwrap_or_else(|| "USERNAME".to_string()),
-                &state.config.window.test_message,
-                &[],
-                positions[position_idx],
-                monitor_geometry,
-            )
-            .await,
-        );
-        windows_count += 1;
-    }
-    #[cfg(windows)]
-    {
-        windows[windows_count] = Some(WindowsWindow::new(
-            &state
-                .config
-                .platforms
-                .values()
-                .next()
-                .map(|p| p.credentials.username.clone().unwrap_or_default())
-                .unwrap_or_else(|| "USERNAME".to_string()),
-            &state.config.window.test_message,
-            &[],
-            positions[position_idx],
-        ));
-        windows_count += 1;
-    }
-
-    position_idx += 1;
-    position_idx %= positions.len();
+    // position management handled in event loop
 
     // Loop principal
-    let mut timer = tokio::time::interval(tokio::time::Duration::from_millis(10));
+    let mut timer = tokio::time::interval(tokio::time::Duration::from_millis(50)); // 20 FPS for progress updates
 
     println!("✅ Overlay Native started successfully!");
     println!(
@@ -473,6 +580,23 @@ async fn main() -> Result<()> {
         state.config.get_enabled_connections().len()
     );
 
+    eprintln!("[DEBUG] Initialization completed, about to enter main loop");
+
+    // Reset progress timer at main loop start for proper initial timing
+    #[cfg(windows)]
+    // Progress updates are now handled by AsyncWindowManager
+
+    // Start background tasks
+    state.start_message_processor().await;
+    println!("📡 Background services started");
+
+    // Subscribe to events before the loop
+    let mut event_rx = state.event_emitter.subscribe();
+
+    // Position management for window placement
+    let mut position_idx = 0;
+
+    println!("🚀 Starting main event loop...");
     loop {
         let continue_loop;
         #[cfg(unix)]
@@ -487,101 +611,62 @@ async fn main() -> Result<()> {
             break;
         }
 
-        let mut windows_count = windows_count % total_windows;
-
-        // Limpiar ventanas expiradas
-        let now = tokio::time::Instant::now();
-        let max_time = state.config.message_duration();
-
-        for win in windows.iter_mut().filter(|x| x.is_some()) {
-            let created_time = if cfg!(unix) {
-                win.as_ref().unwrap().created
-            } else {
-                win.as_ref().unwrap().created
-            };
-            let elapsed = now - created_time;
-            if elapsed >= max_time {
-                #[cfg(unix)]
-                {
-                    if let Some(ref mut w) = win {
-                        w.w.close();
-                        *win = None;
-                    }
-                }
-                #[cfg(windows)]
-                if let Some(ref mut w) = win {
-                    w.close();
-                    *win = None;
-                }
-            } else {
-                let progress = elapsed.as_secs_f64() / max_time.as_secs_f64();
-                #[cfg(unix)]
-                if let Some(ref mut w) = win {
-                    w.progress.set_fraction(progress);
-                }
-                #[cfg(windows)]
-                if let Some(ref mut w) = win {
-                    w.set_progress(progress);
-                }
-            }
+        // Add small delay to prevent CPU hogging and allow Windows to process messages
+        #[cfg(windows)]
+        {
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await; // ~100 FPS main loop, progress updates at 20 FPS
         }
 
-        // Ensure windows_count doesn't exceed bounds
-        windows_count %= total_windows;
+        // Clean up expired windows periodically
+        if position_idx == 0 {
+            state.window_tracker.cleanup_expired().await;
+        }
 
-        // Procesar mensajes
+        // Process messages and timer ticks using event system
         #[cfg(unix)]
         tokio::select! {
-            message = state.platform_manager.write().await.next_message() => {
-                if let Some(message) = message {
-                    match state.process_message(message).await {
-                        Ok(processed_message) => {
-                            if let Some(win) = windows[windows_count].take() {
-                                win.w.close();
-                            }
-                            let win = handle_message(processed_message, positions[position_idx], monitor_geometry, &state.config).await;
-                            windows[windows_count] = Some(win);
-                            position_idx += 1;
-                            position_idx %= positions.len();
-                            windows_count += 1;
-                        }
-                        Err(e) => {
-                            eprintln!("⚠️ Error processing message: {}", e);
-                        }
-                    }
+            event = event_rx.recv() => {
+                if let Ok(AppEvent::MessageReceived(processed_message)) = event {
+                    // Create window asynchronously and add to window manager
+                    let message_clone = processed_message.clone();
+                    let pos = positions[position_idx];
+                    let monitor_geo = monitor_geometry;
+                    let config_clone = state.config.clone();
+                    let window_tracker = state.window_tracker.clone();
+
+                    // Create window directly (simpler approach to avoid Send issues)
+                    let win = handle_message(message_clone, pos, monitor_geo, &config_clone);
+                    window_tracker.add_window(win).await;
+
+                    position_idx = (position_idx + 1) % positions.len();
                 }
             },
-            _ = timer.tick() => {}
+            _ = timer.tick() => {
+                // Timer tick - progress bars are updated in the cleanup loop above
+            }
         }
 
         #[cfg(windows)]
         {
-            let mut pm = state.platform_manager.write().await;
             tokio::select! {
-                message = pm.next_message() => {
-                    if let Some(message) = message {
-                        eprintln!("[DEBUG] Main loop received message: {} - {} - {}", message.platform, message.username, message.content);
-                        match state.process_message(message).await {
-                            Ok(processed_message) => {
-                                eprintln!("[DEBUG] Message processed successfully, creating window");
-                                if let Some(win) = windows[windows_count].take() {
-                                    win.close();
-                                }
-                                let win = handle_message(processed_message, positions[position_idx], monitor_geometry, &state.config).await;
-                                windows[windows_count] = Some(win);
-                                position_idx += 1;
-                                position_idx %= positions.len();
-                                windows_count = (windows_count + 1) % total_windows;
-                                eprintln!("[DEBUG] Window created and positioned");
-                            }
-                            Err(e) => {
-                                eprintln!("⚠️ Error processing message: {}", e);
-                                eprintln!("[DEBUG] Message processing failed with error: {}", e);
-                            }
-                        }
-                    } else {
-                        eprintln!("[DEBUG] No message received from platform manager");
+                event = event_rx.recv() => {
+                    if let Ok(AppEvent::MessageReceived(processed_message)) = event {
+                        // Create window asynchronously and add to window manager
+                        let message_clone = processed_message.clone();
+                        let pos = positions[position_idx];
+                        let monitor_geo = monitor_geometry;
+                        let config_clone = state.config.clone();
+                        let window_tracker = state.window_tracker.clone();
+
+                        // Create window directly (simpler approach to avoid Send issues)
+                        let win = handle_message(message_clone, pos, monitor_geo, &config_clone);
+                        window_tracker.add_window(win).await;
+
+                        position_idx = (position_idx + 1) % positions.len();
                     }
+                },
+                _ = timer.tick() => {
+                    // Timer tick for Windows - progress bars are updated in the cleanup loop above
                 }
             }
         }
@@ -603,7 +688,7 @@ async fn main() -> Result<()> {
 
 // Funciones de manejo de mensajes y ventanas
 #[cfg(unix)]
-async fn handle_message(
+fn handle_message(
     message: connection::ChatMessage,
     position: (i32, i32),
     monitor_geometry: gtk::Rectangle,
@@ -627,19 +712,12 @@ async fn handle_message(
         })
         .collect();
 
-    spawn_window(
-        &message.username,
-        &message.content,
-        &emotes,
-        position,
-        monitor_geometry,
-    )
-    .await
+    crate::windows::WindowsWindow::new(&message.username, &message.content, &emotes, position)
 }
 
 #[cfg(windows)]
 #[cfg(windows)]
-async fn handle_message(
+fn handle_message(
     message: crate::connection::ChatMessage,
     position: (i32, i32),
     _monitor_geometry: crate::windows::WindowGeometry,

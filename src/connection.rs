@@ -209,7 +209,15 @@ pub struct PlatformManager {
     message_receiver: mpsc::UnboundedReceiver<ChatMessage>,
     platforms: HashMap<
         String,
-        Box<dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError> + Send + Sync>,
+        std::sync::Arc<
+            tokio::sync::Mutex<
+                Box<
+                    dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError>
+                        + Send
+                        + Sync,
+                >,
+            >,
+        >,
     >,
     connections: HashMap<String, ConnectionInfo>,
 }
@@ -252,7 +260,8 @@ impl PlatformManager {
                 + 'static,
         >,
     ) {
-        self.platforms.insert(name, platform);
+        self.platforms
+            .insert(name, std::sync::Arc::new(tokio::sync::Mutex::new(platform)));
     }
 
     pub fn add_connection(&mut self, info: ConnectionInfo) {
@@ -268,8 +277,14 @@ impl PlatformManager {
         &mut self,
         platform_name: &str,
     ) -> Option<
-        &mut Box<
-            dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError> + Send + Sync,
+        &mut std::sync::Arc<
+            tokio::sync::Mutex<
+                Box<
+                    dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError>
+                        + Send
+                        + Sync,
+                >,
+            >,
         >,
     > {
         self.platforms.get_mut(platform_name)
@@ -296,26 +311,33 @@ impl PlatformManager {
             return Err("Connection is disabled".into());
         }
 
-        let platform = self
+        let platform_arc = self
             .platforms
-            .get_mut(&connection_info.platform)
-            .ok_or("Platform not found")?;
+            .get(&connection_info.platform)
+            .ok_or("Platform not found")?
+            .clone();
 
-        if !platform.is_connected() {
-            eprintln!("[DEBUG] Platform not connected, connecting...");
-            platform.connect().await?;
-            eprintln!("[DEBUG] Platform connected successfully.");
-        } else {
-            eprintln!("[DEBUG] Platform already connected.");
+        {
+            let mut platform = platform_arc.lock().await;
+            if !platform.is_connected() {
+                eprintln!("[DEBUG] Platform not connected, connecting...");
+                platform.connect().await?;
+                eprintln!("[DEBUG] Platform connected successfully.");
+            } else {
+                eprintln!("[DEBUG] Platform already connected.");
+            }
         }
 
         eprintln!(
             "[DEBUG] Joining channel: {}",
             connection_info.channel.clone()
         );
-        platform
-            .join_channel(connection_info.channel.clone())
-            .await?;
+        {
+            let mut platform = platform_arc.lock().await;
+            platform
+                .join_channel(connection_info.channel.clone())
+                .await?;
+        }
         eprintln!("[DEBUG] Joined channel: {}", connection_info.channel);
 
         let sender = self.message_sender.clone();
@@ -330,7 +352,13 @@ impl PlatformManager {
 
             let mut message_count = 0;
             loop {
-                if let Some(mut message) = platform.next_message().await {
+                // Get message without holding the lock for too long
+                let message = {
+                    let mut platform = platform_arc.lock().await;
+                    platform.next_message().await
+                };
+
+                if let Some(mut message) = message {
                     message_count += 1;
                     eprintln!(
                         "[DEBUG] Received message #{} from {}: {} - {}",
@@ -417,6 +445,23 @@ impl PlatformManager {
         self.platforms.keys().cloned().collect()
     }
 
+    pub fn get_platform(
+        &self,
+        platform_name: &str,
+    ) -> Option<
+        &std::sync::Arc<
+            tokio::sync::Mutex<
+                Box<
+                    dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError>
+                        + Send
+                        + Sync,
+                >,
+            >,
+        >,
+    > {
+        self.platforms.get(platform_name)
+    }
+
     pub fn get_connections(&self) -> Vec<&ConnectionInfo> {
         self.connections.values().collect()
     }
@@ -430,7 +475,7 @@ impl PlatformManager {
 
     pub async fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         for (_, platform) in &mut self.platforms {
-            platform.disconnect().await?;
+            platform.lock().await.disconnect().await?;
         }
         Ok(())
     }

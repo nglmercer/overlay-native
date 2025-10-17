@@ -46,16 +46,7 @@ impl TwitchPlatform {
         let mut base =
             BasePlatform::new("twitch".to_string(), PlatformType::Twitch, config.clone());
 
-        // Validar credenciales
-        if config.credentials.username.is_none() {
-            return Err(TwitchError::AuthError("Username is required".to_string()));
-        }
-
-        if config.credentials.oauth_token.is_none() {
-            return Err(TwitchError::AuthError(
-                "OAuth token is required".to_string(),
-            ));
-        }
+        // Credenciales son opcionales para conexiones anónimas
 
         Ok(Self {
             base,
@@ -167,8 +158,13 @@ impl TwitchPlatform {
     }
 
     async fn handle_server_message(&mut self, message: ServerMessage) -> Option<ChatMessage> {
+        eprintln!("[DEBUG] Received Twitch message: {:?}", message);
         match message {
             ServerMessage::Privmsg(privmsg) => {
+                eprintln!(
+                    "[DEBUG] Processing PRIVMSG from {}: {}",
+                    privmsg.sender.name, privmsg.message_text
+                );
                 // Actualizar estadísticas del canal
                 let channel_login = privmsg.channel_login.clone();
                 if let Some(channel_info) = self.base.get_channel_info(&channel_login) {
@@ -293,16 +289,28 @@ impl StreamingPlatform for TwitchPlatform {
     type Error = TwitchError;
 
     async fn connect(&mut self) -> Result<(), Self::Error> {
-        let credentials = StaticLoginCredentials::new(
-            self.base.credentials.username.clone().unwrap_or_default(),
-            Some(
-                self.base
-                    .credentials
-                    .oauth_token
-                    .clone()
-                    .unwrap_or_default(),
-            ),
-        );
+        // Use anonymous connection if no credentials are provided
+        let username = self
+            .base
+            .credentials
+            .username
+            .clone()
+            .unwrap_or_else(|| "justinfan12345".to_string());
+
+        let oauth_token = self.base.credentials.oauth_token.clone();
+
+        let credentials = if let Some(token) = oauth_token {
+            if token.is_empty() || token == "oauth:YOUR_OAUTH_TOKEN_HERE" {
+                // Use anonymous connection with default username
+                StaticLoginCredentials::new("justinfan12345".to_string(), None)
+            } else {
+                // Use provided credentials
+                StaticLoginCredentials::new(username, Some(token))
+            }
+        } else {
+            // No oauth token provided, use anonymous connection
+            StaticLoginCredentials::new("justinfan12345".to_string(), None)
+        };
 
         let config = ClientConfig::new_simple(credentials);
         let (incoming_messages, client) =
@@ -365,14 +373,25 @@ impl StreamingPlatform for TwitchPlatform {
         loop {
             let message = match &mut self.message_receiver {
                 Some(receiver) => receiver.recv().await,
-                None => return None,
+                None => {
+                    eprintln!("[DEBUG] No message receiver available");
+                    return None;
+                }
             };
 
             if let Some(message) = message {
+                eprintln!("[DEBUG] Raw message received from Twitch IRC");
                 if let Some(chat_message) = self.handle_server_message(message).await {
+                    eprintln!(
+                        "[DEBUG] Converted to ChatMessage: {} - {}",
+                        chat_message.username, chat_message.content
+                    );
                     return Some(chat_message);
+                } else {
+                    eprintln!("[DEBUG] Message filtered out or not converted");
                 }
             } else {
+                eprintln!("[DEBUG] No message received (channel closed)");
                 return None;
             }
         }
@@ -532,18 +551,21 @@ impl PlatformCreator for TwitchCreator {
     }
 
     fn required_credentials(&self) -> Vec<&'static str> {
-        vec!["username", "oauth_token"]
+        vec![] // No credentials required for anonymous connections
     }
 
     async fn validate_credentials(&self, credentials: &Credentials) -> Result<bool, PlatformError> {
-        // Validación básica
-        if credentials.username.is_none() {
-            return Ok(false);
-        }
-
-        if let Some(token) = &credentials.oauth_token {
-            Ok(token.starts_with("oauth:") && token.len() > 10)
+        // Allow anonymous connections (no credentials) or validate provided credentials
+        if credentials.username.is_none() && credentials.oauth_token.is_none() {
+            // Anonymous connection is allowed
+            Ok(true)
+        } else if let (Some(username), Some(token)) =
+            (&credentials.username, &credentials.oauth_token)
+        {
+            // Validate provided credentials
+            Ok(!username.is_empty() && token.starts_with("oauth:") && token.len() > 10)
         } else {
+            // Invalid combination (only one credential provided)
             Ok(false)
         }
     }
