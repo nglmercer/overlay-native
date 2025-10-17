@@ -241,6 +241,7 @@ impl AppState {
     async fn initialize_platforms(&self) -> Result<()> {
         let mut manager = self.platform_manager.write().await;
         let enabled_platforms = self.config.get_enabled_platforms();
+        eprintln!("[DEBUG] Enabled platforms: {:?}", enabled_platforms);
 
         for platform_name in enabled_platforms {
             if let Some(platform_config) = self.config.get_platform_config(platform_name) {

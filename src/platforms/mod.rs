@@ -27,7 +27,7 @@ impl PlatformFactory {
         // Registrar plataformas por defecto
         factory.register_platform("twitch".to_string(), Arc::new(TwitchCreator));
         // factory.register_platform("youtube".to_string(), Arc::new(YouTubeCreator));
-        // factory.register_platform("kick".to_string(), Arc::new(KickCreator));
+        factory.register_platform("kick".to_string(), Arc::new(KickCreator));
 
         factory
     }

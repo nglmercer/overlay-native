@@ -64,8 +64,8 @@
     {
       "id": "twitch_main",
       "platform": "twitch",
-      "channel": "vegetta777",
-      "enabled": true,
+      "channel": "folagorlives",
+      "enabled": false,
       "filters": {
         "min_message_length": null,
         "max_message_length": 500,
@@ -115,8 +115,8 @@
     {
       "id": "kick_main",
       "platform": "kick",
-      "channel": "streamer_channel",
-      "enabled": false,
+      "channel": "rodiksama",
+      "enabled": true,
       "filters": {
         "min_message_length": null,
         "max_message_length": 400,
@@ -136,7 +136,12 @@
     "test_message": "TEST MESSAGE",
     "animation_enabled": true,
     "fade_in_duration_ms": 300,
-    "fade_out_duration_ms": 500
+    "fade_out_duration_ms": 500,
+    "random": false,
+    "default": {
+      "x": "50",
+      "y": "50"
+    }
   },
   "display": {
     "monitor_margin": 40,

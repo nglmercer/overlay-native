@@ -340,25 +340,62 @@ impl Default for Config {
             },
         );
 
+        // Configuración por defecto para Kick
+        platforms.insert(
+            "kick".to_string(),
+            PlatformConfig {
+                platform_type: PlatformType::Kick,
+                enabled: true,
+                credentials: Credentials::default(),
+                settings: PlatformSettings {
+                    max_reconnect_attempts: 5,
+                    reconnect_delay_ms: 5000,
+                    message_buffer_size: 1000,
+                    enable_emotes: true,
+                    enable_badges: true,
+                    custom_settings: HashMap::new(),
+                },
+            },
+        );
+
         Self {
             platforms,
-            connections: vec![ConnectionConfig {
-                id: "twitch_main".to_string(),
-                platform: "twitch".to_string(),
-                channel: "gohuntleo".to_string(),
-                enabled: true,
-                filters: MessageFilters {
-                    min_message_length: None,
-                    max_message_length: Some(500),
-                    blocked_users: vec![],
-                    allowed_users: vec![],
-                    blocked_words: vec![],
-                    commands_only: false,
-                    subscribers_only: false,
-                    vip_only: false,
+            connections: vec![
+                ConnectionConfig {
+                    id: "twitch_main".to_string(),
+                    platform: "twitch".to_string(),
+                    channel: "gohuntleo".to_string(),
+                    enabled: false, // Deshabilitado por defecto para evitar errores si no hay token
+                    filters: MessageFilters {
+                        min_message_length: None,
+                        max_message_length: Some(500),
+                        blocked_users: vec![],
+                        allowed_users: vec![],
+                        blocked_words: vec![],
+                        commands_only: false,
+                        subscribers_only: false,
+                        vip_only: false,
+                    },
+                    display_name: Some("Main Twitch Chat".to_string()),
                 },
-                display_name: Some("Main Twitch Chat".to_string()),
-            }],
+                ConnectionConfig {
+                    id: "kick_main".to_string(),
+                    platform: "kick".to_string(),
+                    channel: "rodiksama".to_string(),
+                    enabled: true, // Habilitado por defecto, Kick no requiere autenticación
+                    filters: MessageFilters {
+                        min_message_length: None,
+                        max_message_length: Some(500),
+                        blocked_users: vec![],
+                        allowed_users: vec![],
+                        blocked_words: vec![],
+                        commands_only: false,
+                        subscribers_only: false,
+                        vip_only: false,
+                    },
+                    display_name: Some("Kick Chat".to_string()),
+                },
+            ],
             window: WindowConfig {
                 message_duration_seconds: 10,
                 max_windows: 100,

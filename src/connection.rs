@@ -260,8 +260,13 @@ impl PlatformManager {
                 + 'static,
         >,
     ) {
+        eprintln!("[DEBUG] Registering platform: {}", name);
         self.platforms
             .insert(name, std::sync::Arc::new(tokio::sync::Mutex::new(platform)));
+        eprintln!(
+            "[DEBUG] Total registered platforms: {}",
+            self.platforms.len()
+        );
     }
 
     pub fn add_connection(&mut self, info: ConnectionInfo) {
@@ -311,6 +316,11 @@ impl PlatformManager {
             return Err("Connection is disabled".into());
         }
 
+        eprintln!("[DEBUG] Looking for platform: {}", connection_info.platform);
+        eprintln!(
+            "[DEBUG] Available platforms: {:?}",
+            self.platforms.keys().collect::<Vec<_>>()
+        );
         let platform_arc = self
             .platforms
             .get(&connection_info.platform)
