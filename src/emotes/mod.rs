@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 /// Sistema unificado de manejo de emotes para todas las plataformas
 pub struct EmoteSystem {
-    cache: EmoteCache,
+    pub cache: EmoteCache,
     providers: HashMap<String, Box<dyn EmoteProvider>>,
     parser: EmoteParser,
     renderer: EmoteRenderer,
@@ -58,18 +58,24 @@ impl EmoteSystem {
 
         // Obtener emotes del parser específico de la plataforma
         if let Some(provider) = self.providers.get(platform) {
-            let platform_emotes = provider.parse_emotes(message, raw_emote_data).await?;
+            match provider.parse_emotes(message, raw_emote_data).await {
+                Ok(platform_emotes) => {
+                    for mut emote in platform_emotes {
+                        // Enriquecer con datos del cache si es necesario
+                        if let Some(cached) = self.cache.get(&emote.id) {
+                            emote.url = cached.url.clone();
+                            emote.is_animated = cached.is_animated;
+                            emote.width = cached.width;
+                            emote.height = cached.height;
+                        }
 
-            for mut emote in platform_emotes {
-                // Enriquecer con datos del cache si es necesario
-                if let Some(cached) = self.cache.get(&emote.id) {
-                    emote.url = cached.url.clone();
-                    emote.is_animated = cached.is_animated;
-                    emote.width = cached.width;
-                    emote.height = cached.height;
+                        emotes.push(emote);
+                    }
                 }
-
-                emotes.push(emote);
+                Err(_) => {
+                    // Handle provider errors gracefully - continue with empty emotes
+                    // This allows the system to remain functional even when providers fail
+                }
             }
         }
 

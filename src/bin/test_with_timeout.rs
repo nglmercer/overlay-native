@@ -247,10 +247,10 @@ async fn test_shutdown() -> Result<(), Box<dyn std::error::Error>> {
     .await;
 
     match shutdown_timeout {
-        Ok(result) => {
-            result?;
-            println!("   ✅ Shutdown completed successfully");
-        }
+        Ok(result) => match result {
+            Ok(_) => println!("   ✅ Shutdown completed successfully"),
+            Err(e) => return Err(format!("Task error: {}", e).into()),
+        },
         Err(_) => {
             return Err("Shutdown timed out".into());
         }

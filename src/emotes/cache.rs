@@ -37,9 +37,11 @@ impl Default for CachedEmote {
 
 impl EmoteCache {
     pub fn new(ttl_hours: u64) -> Self {
+        // Handle potential overflow when converting hours to seconds
+        let ttl_seconds = ttl_hours.saturating_mul(3600);
         Self {
             cache: HashMap::new(),
-            ttl: Duration::from_secs(ttl_hours * 3600),
+            ttl: Duration::from_secs(ttl_seconds),
             last_cleanup: Instant::now(),
             cleanup_interval: Duration::from_secs(300), // 5 minutos
             max_size: 10000,
@@ -140,9 +142,9 @@ impl EmoteCache {
         self.last_cleanup.elapsed() > self.ttl
     }
 
-    /// Obtiene estadísticas del cache
-    pub fn stats(&self) -> CacheStats {
-        CacheStats {
+    /// Obtiene las estadísticas del cache
+    pub fn stats(&mut self) -> CacheStats {
+        let stats = CacheStats {
             size: self.cache.len(),
             max_size: self.max_size,
             hit_count: self.hit_count,
@@ -154,7 +156,14 @@ impl EmoteCache {
             },
             ttl_seconds: self.ttl.as_secs(),
             last_cleanup: self.last_cleanup,
-        }
+        };
+        stats
+    }
+
+    /// Resetea las estadísticas del cache
+    pub fn reset_stats(&mut self) {
+        self.hit_count = 0;
+        self.miss_count = 0;
     }
 
     /// Obtiene emotes por source

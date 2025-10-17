@@ -64,7 +64,7 @@
     {
       "id": "twitch_main",
       "platform": "twitch",
-      "channel": "rodezel",
+      "channel": "vegetta777",
       "enabled": true,
       "filters": {
         "min_message_length": null,

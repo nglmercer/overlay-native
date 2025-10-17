@@ -99,7 +99,7 @@ impl EmoteRenderer {
     }
 
     /// Resuelve la URL de un emote basado en su source
-    fn resolve_emote_url(&self, emote: &Emote) -> Result<String, RenderError> {
+    pub fn resolve_emote_url(&self, emote: &Emote) -> Result<String, RenderError> {
         if let Some(url) = &emote.url {
             return Ok(url.clone());
         }
@@ -151,7 +151,7 @@ impl EmoteRenderer {
     }
 
     /// Detecta el formato de imagen
-    fn detect_image_format(&self, data: &[u8]) -> Result<String, RenderError> {
+    pub fn detect_image_format(&self, data: &[u8]) -> Result<String, RenderError> {
         if data.len() < 8 {
             return Err(RenderError::FormatError("File too small".to_string()));
         }
@@ -414,8 +414,8 @@ mod tests {
         let png_data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
         assert_eq!(renderer.detect_image_format(&png_data).unwrap(), "png");
 
-        // GIF magic bytes
-        let gif_data = b"GIF89a".to_vec();
+        // GIF magic bytes (need at least 8 bytes)
+        let gif_data = b"GIF89a__".to_vec();
         assert_eq!(renderer.detect_image_format(&gif_data).unwrap(), "gif");
     }
 

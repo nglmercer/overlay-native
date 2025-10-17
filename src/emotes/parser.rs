@@ -76,7 +76,7 @@ impl EmoteParser {
                 if let (Ok(start), Ok(end)) =
                     (pos_parts[0].parse::<usize>(), pos_parts[1].parse::<usize>())
                 {
-                    if start < message.len() && end < message.len() {
+                    if start < message.len() && end < message.len() && start <= end {
                         let emote_name = message[start..=end].to_string();
 
                         let source = if emote_id.starts_with("emotesv2_") {
@@ -164,32 +164,20 @@ impl EmoteParser {
         let mut positions = Vec::new();
         let mut start = 0;
 
+        // Handle empty emote name
+        if emote_name.is_empty() {
+            return Vec::new();
+        }
+
         while let Some(pos) = text[start..].find(emote_name) {
             let actual_start = start + pos;
             let actual_end = actual_start + emote_name.len() - 1;
 
-            // Verificar que esté como palabra completa
-            let prev_char = if actual_start > 0 {
-                text.chars().nth(actual_start - 1)
-            } else {
-                None
-            };
-
-            let next_char = text.chars().nth(actual_end + 1);
-
-            let is_word_boundary = match (prev_char, next_char) {
-                (None, None) => true,
-                (None, Some(c)) => !c.is_alphanumeric(),
-                (Some(c), None) => !c.is_alphanumeric(),
-                (Some(prev), Some(next)) => !prev.is_alphanumeric() && !next.is_alphanumeric(),
-            };
-
-            if is_word_boundary {
-                positions.push(TextPosition {
-                    start: actual_start,
-                    end: actual_end,
-                });
-            }
+            // Add position for any match (not just word boundaries)
+            positions.push(TextPosition {
+                start: actual_start,
+                end: actual_end,
+            });
 
             start = actual_end + 1;
         }
@@ -329,7 +317,7 @@ mod tests {
     fn test_parse_twitch_emotes() {
         let parser = EmoteParser::new();
         let message = "Hello Kappa world PogChamp";
-        let emote_data = "25:6-10/305954156:12-19";
+        let emote_data = "25:6-10/305954156:18-25";
 
         let emotes = parser.parse_twitch_emotes(message, emote_data);
 

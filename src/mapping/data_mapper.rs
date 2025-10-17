@@ -309,7 +309,7 @@ impl DataMapper {
     fn parse_cheer_amount(&self, content: &str) -> Option<u32> {
         use regex::Regex;
 
-        let cheer_regex = Regex::new(r"(\d+)bits?").ok()?;
+        let cheer_regex = Regex::new(r"(?i)(\d+)\s*bits?").ok()?;
         if let Some(captures) = cheer_regex.captures(content) {
             captures.get(1)?.as_str().parse().ok()
         } else {

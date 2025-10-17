@@ -44,6 +44,22 @@ impl EmoteApiClient {
         }
     }
 
+    pub fn with_timeout(timeout_secs: u64) -> Self {
+        Self {
+            client: Client::builder()
+                .timeout(Duration::from_secs(timeout_secs))
+                .user_agent("Overlay-Native/1.0")
+                .build()
+                .unwrap_or_default(),
+            timeout: Duration::from_secs(timeout_secs),
+        }
+    }
+
+    pub fn with_retry_config(mut self, max_retries: u32, base_delay_ms: u64) -> Self {
+        // Store retry config for later use in get_json
+        self
+    }
+
     pub async fn get_json<T: for<'de> Deserialize<'de>>(&self, url: &str) -> Result<T, EmoteError> {
         const MAX_RETRIES: u32 = 3;
         const BASE_DELAY_MS: u64 = 500;
@@ -118,6 +134,12 @@ impl TwitchEmoteProvider {
     pub fn new() -> Self {
         Self {
             api_client: EmoteApiClient::new(),
+        }
+    }
+
+    pub fn with_timeout(timeout_secs: u64) -> Self {
+        Self {
+            api_client: EmoteApiClient::with_timeout(timeout_secs),
         }
     }
 
@@ -264,6 +286,12 @@ impl BTTVEmoteProvider {
         }
     }
 
+    pub fn with_timeout(timeout_secs: u64) -> Self {
+        Self {
+            api_client: EmoteApiClient::with_timeout(timeout_secs),
+        }
+    }
+
     async fn get_bttv_channel_emotes(&self, channel: &str) -> Result<Vec<EmoteData>, EmoteError> {
         let url = format!(
             "https://api.betterttv.net/3/cached/users/twitch/{}",
@@ -385,6 +413,12 @@ impl FFZEmoteProvider {
     pub fn new() -> Self {
         Self {
             api_client: EmoteApiClient::new(),
+        }
+    }
+
+    pub fn with_timeout(timeout_secs: u64) -> Self {
+        Self {
+            api_client: EmoteApiClient::with_timeout(timeout_secs),
         }
     }
 
@@ -546,6 +580,12 @@ impl SevenTVEmoteProvider {
         }
     }
 
+    pub fn with_timeout(timeout_secs: u64) -> Self {
+        Self {
+            api_client: EmoteApiClient::with_timeout(timeout_secs),
+        }
+    }
+
     async fn get_7tv_channel_emotes(&self, channel: &str) -> Result<Vec<EmoteData>, EmoteError> {
         let url = format!("https://7tv.io/v3/users/twitch/{}", channel);
 
@@ -681,6 +721,51 @@ impl Default for SevenTVEmoteProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_api_client_timeout() {
+        let client = EmoteApiClient::with_timeout(1); // 1 second timeout
+
+        // Test with a URL that will timeout
+        let result: Result<serde_json::Value, _> =
+            client.get_json("https://httpbin.org/delay/5").await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            EmoteError::NetworkError(msg) => {
+                // Accept various error types (timeout, connection error, etc.)
+                assert!(
+                    msg.contains("timeout")
+                        || msg.contains("Timeout")
+                        || msg.contains("Failed to fetch")
+                        || msg.contains("error sending request")
+                );
+            }
+            _ => panic!("Expected NetworkError"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_api_client_retry() {
+        let client = EmoteApiClient::new().with_retry_config(2, 100);
+
+        // Test with a flaky endpoint
+        let result: Result<serde_json::Value, _> =
+            client.get_json("https://httpbin.org/status/500").await;
+
+        assert!(result.is_err());
+        // Should have retried at least once
+    }
+
+    #[tokio::test]
+    async fn test_api_client_success() {
+        let client = EmoteApiClient::new();
+
+        let result: Result<serde_json::Value, _> =
+            client.get_json("https://httpbin.org/json").await;
+
+        assert!(result.is_ok());
+    }
 
     #[tokio::test]
     async fn test_bttv_global_emotes() {

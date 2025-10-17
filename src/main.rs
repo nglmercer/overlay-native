@@ -30,8 +30,12 @@ use crate::mapping::MappingSystem;
 use crate::platforms::{CredentialManager, PlatformFactory};
 
 use anyhow::Result;
-
 use tokio::sync::broadcast;
+
+#[cfg(windows)]
+use winapi::shared::windef::{HWND, RECT};
+#[cfg(windows)]
+use winapi::um::winuser::{GetClientRect, GetWindowLongPtrW, InvalidateRect, GWLP_USERDATA};
 
 /// Application events for the emitter system
 #[derive(Debug, Clone)]
@@ -107,20 +111,49 @@ impl WindowTracker {
             let mut windows = self.windows.write().await;
             let mut windows_to_remove = Vec::new();
 
-            // First pass: identify windows to remove and update progress
-            for (i, w) in windows.iter().enumerate() {
+            // Update progress for all windows and identify expired ones
+            for (i, w) in windows.iter_mut().enumerate() {
                 let elapsed = now - w.created;
                 if elapsed >= max_time {
                     windows_to_remove.push(i);
                 } else {
                     let progress = elapsed.as_secs_f64() / max_time.as_secs_f64();
-                    // Create a mutable copy for progress update
-                    let mut w_copy = w.clone();
-                    w_copy.set_progress(progress);
+
+                    // Only update if progress changed significantly (2% or more)
+                    let progress_diff = (w.progress - progress).abs();
+                    if progress_diff >= 0.02 {
+                        // Update progress
+                        w.progress = progress;
+                        unsafe {
+                            // Update the stored window data
+                            let window_data_ptr = GetWindowLongPtrW(w.hwnd, GWLP_USERDATA)
+                                as *mut crate::windows::WindowData;
+                            if !window_data_ptr.is_null() {
+                                (*window_data_ptr).progress = progress;
+                            }
+
+                            // Only invalidate the progress bar area to avoid flickering
+                            let mut client_rect = RECT {
+                                left: 0,
+                                top: 0,
+                                right: 0,
+                                bottom: 0,
+                            };
+                            GetClientRect(w.hwnd, &mut client_rect);
+
+                            let progress_rect = RECT {
+                                left: 10,
+                                top: client_rect.bottom - 15,
+                                right: client_rect.right - 10,
+                                bottom: client_rect.bottom - 5,
+                            };
+                            InvalidateRect(w.hwnd, &progress_rect, 0); // Don't erase background
+                        }
+                    }
                 }
             }
 
-            // Second pass: remove expired windows
+            // Remove expired windows (in reverse order to maintain indices)
             for &i in windows_to_remove.iter().rev() {
                 let w = windows.remove(i);
                 w.close();
@@ -568,7 +601,8 @@ async fn main() -> Result<()> {
     // position management handled in event loop
 
     // Loop principal
-    let mut timer = tokio::time::interval(tokio::time::Duration::from_millis(50)); // 20 FPS for progress updates
+    let mut timer = tokio::time::interval(tokio::time::Duration::from_millis(100)); // 10 FPS for progress updates (less flickering)
+    let mut cleanup_counter = 0;
 
     println!("✅ Overlay Native started successfully!");
     println!(
@@ -617,9 +651,11 @@ async fn main() -> Result<()> {
             tokio::time::sleep(tokio::time::Duration::from_millis(10)).await; // ~100 FPS main loop, progress updates at 20 FPS
         }
 
-        // Clean up expired windows periodically
-        if position_idx == 0 {
+        // Clean up expired windows every 5 frames (every 500ms)
+        cleanup_counter += 1;
+        if cleanup_counter >= 5 {
             state.window_tracker.cleanup_expired().await;
+            cleanup_counter = 0;
         }
 
         // Process messages and timer ticks using event system

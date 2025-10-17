@@ -625,7 +625,7 @@ mod tests {
     #[test]
     fn test_anonymize_username() {
         let transformer = MessageTransformer::new();
-        assert_eq!(transformer.anonymize_username("username"), "u******");
+        assert_eq!(transformer.anonymize_username("username"), "u*******");
         assert_eq!(transformer.anonymize_username("ab"), "**");
         assert_eq!(transformer.anonymize_username("a"), "*");
     }
