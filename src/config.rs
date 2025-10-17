@@ -233,7 +233,22 @@ impl Config {
     }
 
     pub fn load_default() -> Result<Self, ConfigError> {
-        Self::load_from_file("config.json")
+        Self::load_with_fallback("config.json")
+    }
+
+    pub fn load_with_fallback<P: AsRef<Path>>(external_path: P) -> Result<Self, ConfigError> {
+        // Intentar cargar configuración externa
+        match Self::load_from_file(&external_path) {
+            Ok(config) => Ok(config),
+            Err(_) => {
+                // Si el archivo externo no existe o hay error, crearlo con valores por defecto
+                let default_config = Self::default();
+                if let Err(e) = default_config.save_to_file(&external_path) {
+                    eprintln!("Warning: Could not create external config file: {}", e);
+                }
+                Ok(default_config)
+            }
+        }
     }
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
@@ -323,8 +338,8 @@ impl Default for Config {
                 platform_type: PlatformType::Twitch,
                 enabled: true,
                 credentials: Credentials {
-                    username: Some("USERNAME".to_string()),
-                    oauth_token: Some("oauth:YOUR_TOKEN_HERE".to_string()),
+                    username: None,
+                    oauth_token: None,
                     api_key: None,
                     client_id: None,
                     client_secret: None,

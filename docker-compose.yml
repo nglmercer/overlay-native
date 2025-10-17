@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  # Servicio de construcción para Linux
+  linux-builder:
+    build:
+      context: .
+      target: linux-builder
+    volumes:
+      - ./target:/app/target
+      - ./dist:/app/dist
+    command: bash -c "
+      cargo build --release --target x86_64-unknown-linux-gnu &&
+      mkdir -p dist/linux &&
+      cp target/x86_64-unknown-linux-gnu/release/overlay-native dist/linux/ &&
+      cp target/x86_64-unknown-linux-gnu/release/test_emotes dist/linux/ &&
+      echo 'Construcción para Linux completada'"
+    profiles:
+      - build
+
+  # Entorno de desarrollo
+  development:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    working_dir: /app
+    environment:
+      - RUST_LOG=debug
+      - RUST_BACKTRACE=1
+    command: cargo run
+    profiles:
+      - dev
+
+  # Runtime para producción en Linux
+  runtime:
+    build:
+      context: .
+      target: linux-runtime
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - ./logs:/app/logs
+    environment:
+      - RUST_LOG=info
+    command: overlay-native
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  # Servicio para ejecutar pruebas
+  test:
+    build:
+      context: .
+      target: linux-builder
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    command: cargo test --release
+    profiles:
+      - test
+
+  # Servicio para benchmarking
+  benchmark:
+    build:
+      context: .
+      target: linux-builder
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    command: cargo bench
+    profiles:
+      - bench
+
+volumes:
+  cargo-cache:
+  target-cache:
