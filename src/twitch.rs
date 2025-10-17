@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use std::time::Instant;
+use tokio::sync::mpsc;
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::message::{PrivmsgMessage, ServerMessage};
 use twitch_irc::{ClientConfig, SecureTCPTransport, TwitchIRCClient};
-use tokio::sync::mpsc;
 
 use crate::connection::{ChatEmote, ChatMessage, StreamingPlatform};
 
@@ -38,7 +38,7 @@ impl TwitchPlatform {
             connected: false,
         }
     }
-    
+
     fn convert_emotes(emotes: &[twitch_irc::message::Emote]) -> Vec<ChatEmote> {
         emotes
             .iter()
@@ -49,7 +49,7 @@ impl TwitchPlatform {
             })
             .collect()
     }
-    
+
     fn convert_message(msg: PrivmsgMessage) -> ChatMessage {
         ChatMessage {
             username: msg.sender.name,
@@ -63,19 +63,19 @@ impl TwitchPlatform {
 #[async_trait]
 impl StreamingPlatform for TwitchPlatform {
     type Error = TwitchError;
-    
+
     async fn connect(&mut self) -> Result<(), Self::Error> {
         let config: ClientConfig<StaticLoginCredentials> = ClientConfig::default();
         let (incoming_messages, client) =
             TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
-        
+
         self.client = Some(client);
         self.message_receiver = Some(incoming_messages);
         self.connected = true;
-        
+
         Ok(())
     }
-    
+
     async fn join_channel(&mut self, channel: String) -> Result<(), Self::Error> {
         if let Some(client) = &self.client {
             client
@@ -88,35 +88,47 @@ impl StreamingPlatform for TwitchPlatform {
             ))
         }
     }
-    
+
     async fn next_message(&mut self) -> Option<ChatMessage> {
         if let Some(receiver) = &mut self.message_receiver {
-            while let Some(message) = receiver.recv().await {
-                match message {
-                    ServerMessage::Privmsg(privmsg) => {
-                        return Some(Self::convert_message(privmsg));
+            match tokio::time::timeout(tokio::time::Duration::from_millis(100), receiver.recv())
+                .await
+            {
+                Ok(Some(message)) => {
+                    match message {
+                        ServerMessage::Privmsg(privmsg) => {
+                            return Some(Self::convert_message(privmsg));
+                        }
+                        ServerMessage::Ping(_) | ServerMessage::Pong(_) => {
+                            // Ignorar mensajes de ping/pong
+                            return self.next_message().await;
+                        }
+                        _ => {
+                            // Otros mensajes pueden ser loggeados si es necesario
+                            return self.next_message().await;
+                        }
                     }
-                    ServerMessage::Ping(_) | ServerMessage::Pong(_) => {
-                        // Ignorar mensajes de ping/pong
-                        continue;
-                    }
-                    _ => {
-                        // Otros mensajes pueden ser loggeados si es necesario
-                        continue;
-                    }
+                }
+                Ok(None) => {
+                    // Canal cerrado
+                    return None;
+                }
+                Err(_) => {
+                    // Timeout - no hay mensajes disponibles
+                    return None;
                 }
             }
         }
         None
     }
-    
+
     async fn disconnect(&mut self) -> Result<(), Self::Error> {
         self.connected = false;
         self.client = None;
         self.message_receiver = None;
         Ok(())
     }
-    
+
     fn is_connected(&self) -> bool {
         self.connected
     }

@@ -2,19 +2,40 @@
 name = "overlay-native"
 version = "0.1.0"
 edition = "2021"
+default-run = "overlay-native"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "overlay_native"
+path = "src/lib.rs"
+
+[[bin]]
+name = "overlay-native"
+path = "src/main.rs"
+
+[[bin]]
+name = "test_emotes"
+path = "src/bin/test_emotes.rs"
 
 [dependencies]
 
 anyhow = "1.0.83"
-tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "sync", "fs"] }
 twitch-irc = "5.0.1"
 rand = "0.8.5"
-reqwest = "0.12.4"
+reqwest = { version = "0.12.4", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 async-trait = "0.1"
+thiserror = "1.0.61"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.10.4"
+futures = "0.3.30"
+tokio-tungstenite = "0.20.1"
+url = "2.5.0"
+serde_with = "3.4.0"
+tempfile = "3.10.0"
 
 # Windows-specific dependencies
 [target."cfg(windows)".dependencies]
@@ -29,4 +50,3 @@ glib = "0.17.8"
 glib-macros = "0.17.8"
 gdkx11 = { version = "0.17" }
 x11rb = { version = "0.11.1", features = ["randr"] }
-

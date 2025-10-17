@@ -1,141 +1,464 @@
 # Overlay Native
 
-Un cliente de overlay nativo para Twitch Chat que muestra mensajes de chat como ventanas flotantes semi-transparentes en el escritorio.
+Un sistema de overlay agnóstico a plataformas de streaming con soporte para múltiples conexiones WebSocket, mapeo de datos, y parseo avanzado de emotes.
 
-## 🚀 Características
+## 🚀 Características Principales
 
-- **Multiplataforma**: Soporte nativo para Linux (GTK) y Windows (WinAPI)
-- **Overlay en tiempo real**: Muestra mensajes de Twitch chat como ventanas flotantes
-- **Ventanas semi-transparentes**: Overlay no intrusivo con transparencia configurable
-- **Barra de progreso**: Indicador visual del tiempo de vida de cada mensaje
-- **Posicionamiento aleatorio**: Los mensajes aparecen en posiciones aleatorias en la pantalla
-- **Gestión automática**: Las ventanas se cierran automáticamente después de 10 segundos
-- **Renderizado de emotes**: Soporte básico (implementado parcialmente)
+### 🌐 Sistema Multiplataforma Agnóstico
+- **Múltiples Plataformas**: Twitch, YouTube, Kick, Trovo, Facebook
+- **Conexiones Simultáneas**: Conecta a múltiples canales de diferentes plataformas al mismo tiempo
+- **Arquitectura Modular**: Sistema de plugins fácilmente extensible para nuevas plataformas
+
+### 🎨 Sistema de Emotes Avanzado
+- **Emotes de Terceros**: Soporte completo para BTTV, FFZ, 7TV
+- **Cache Inteligente**: Sistema de cache con TTL y limpieza automática
+- **Renderizado Multi-formato**: PNG, GIF, WebP con escalado automático
+- **Detección Automática**: Parseo de emotes en tiempo real desde cualquier plataforma
+
+### 🔄 Sistema de Mapeo de Datos
+- **Normalización Unificada**: Todos los mensajes se convierten a un formato estándar
+- **Transformaciones Personalizables**: Reglas de transformación configurables por plataforma
+- **Filtros Avanzados**: Filtrado por usuario, contenido, nivel de acceso, etc.
+- **Metadatos Enriquecidos**: Preserva información original mientras normaliza
+
+### 🖥️ Overlay Nativo
+- **Multiplataforma**: Linux (GTK) y Windows (WinAPI)
+- **Ventanas Flotantes**: Overlay semi-transparente no intrusivo
+- **Posicionamiento Inteligente**: Sistema de grid con posicionamiento aleatorio
+- **Animaciones Suaves**: Fade in/out con duración configurable
 
 ## 📋 Requisitos del Sistema
+
+### Comunes
+- Rust 1.70+
+- Memoria RAM: 512MB mínimo
+- Espacio en disco: 100MB
 
 ### Linux
 - GTK 3.0+
 - GDK 3.0+
-- X11 (para funcionalidades específicas de ventanas)
-- Rust 1.70+
+- X11 (o Wayland con XWayland)
+- OpenSSL dev
 
 ### Windows
 - Windows 10/11
-- Visual Studio Build Tools o Visual Studio Community (o MSYS2 + MinGW)
-- Rust 1.70+
+- Visual Studio Build Tools 2019+
+- Windows SDK 10.0+
 
 ## 🛠️ Instalación
 
-Ver [Guía de Instalación](docs/INSTALLATION.md) para instrucciones detalladas por plataforma.
+### Desde Fuente
 
 ```bash
 # Clonar el repositorio
 git clone https://github.com/Brayan-724/overlay-native/
 cd overlay-native
 
-# Compilar y ejecutar
+# Compilar
+cargo build --release
+
+# Ejecutar
 cargo run
 ```
 
-## 📖 Documentación
+### Configuración Inicial
 
-- [Especificaciones Linux](docs/LINUX_SPECS.md) - Detalles técnicos para la implementación GTK
-- [Especificaciones Windows](docs/WINDOWS_SPECS.md) - Detalles técnicos para la implementación WinAPI
-- [Arquitectura del Código](docs/ARCHITECTURE.md) - Estructura y diseño del proyecto
-- [Guía de Instalación](docs/INSTALLATION.md) - Instrucciones de compilación por plataforma
+1. Copia `config.json.example` a `config.json`
+2. Configura tus credenciales de Twitch:
+```json
+{
+  "platforms": {
+    "twitch": {
+      "platform_type": "twitch",
+      "enabled": true,
+      "credentials": {
+        "username": "TU_USERNAME",
+        "oauth_token": "oauth:TU_TOKEN"
+      }
+    }
+  }
+}
+```
+
+3. Configura las conexiones deseadas:
+```json
+{
+  "connections": [
+    {
+      "id": "twitch_main",
+      "platform": "twitch",
+      "channel": "nombre_del_canal",
+      "enabled": true,
+      "filters": {
+        "blocked_words": ["spam", "advertisement"],
+        "max_message_length": 500
+      }
+    }
+  ]
+}
+```
+
+## 📖 Configuración Avanzada
+
+### Plataformas Soportadas
+
+#### Twitch
+```json
+{
+  "twitch": {
+    "platform_type": "twitch",
+    "enabled": true,
+    "credentials": {
+      "username": "tu_usuario",
+      "oauth_token": "oauth:tu_token_oauth"
+    },
+    "settings": {
+      "max_reconnect_attempts": 5,
+      "reconnect_delay_ms": 5000,
+      "enable_emotes": true,
+      "enable_badges": true
+    }
+  }
+}
+```
+
+#### YouTube
+```json
+{
+  "youtube": {
+    "platform_type": "youtube",
+    "enabled": false,
+    "credentials": {
+      "client_id": "tu_client_id",
+      "client_secret": "tu_client_secret",
+      "api_key": "tu_api_key"
+    }
+  }
+}
+```
+
+#### Kick
+```json
+{
+  "kick": {
+    "platform_type": "kick",
+    "enabled": false,
+    "credentials": {
+      "username": "tu_usuario",
+      "token": "tu_token"
+    }
+  }
+}
+```
+
+### Sistema de Emotes
+
+```json
+{
+  "emotes": {
+    "enable_global_emotes": true,
+    "enable_channel_emotes": true,
+    "enable_bttv": true,
+    "enable_ffz": true,
+    "enable_7tv": true,
+    "emote_size": "medium",
+    "emote_animation": true,
+    "max_emotes_per_message": 50,
+    "cache_enabled": true,
+    "cache_ttl_hours": 24
+  }
+}
+```
+
+### Filtros de Mensaje
+
+```json
+{
+  "filters": {
+    "min_message_length": 1,
+    "max_message_length": 500,
+    "blocked_users": ["spamuser123"],
+    "allowed_users": ["moderador"],
+    "blocked_words": ["spam", "advertisement"],
+    "commands_only": false,
+    "subscribers_only": false,
+    "vip_only": false
+  }
+}
+```
+
+### Configuración Visual
+
+```json
+{
+  "display": {
+    "font_family": "Arial",
+    "font_size": 14,
+    "background_color": "#1e1e1e",
+    "text_color": "#ffffff",
+    "username_color": "#00ff00",
+    "border_radius": 8,
+    "opacity": 0.9
+  },
+  "window": {
+    "message_duration_seconds": 10,
+    "max_windows": 100,
+    "animation_enabled": true,
+    "fade_in_duration_ms": 300,
+    "fade_out_duration_ms": 500
+  }
+}
+```
 
 ## 🏗️ Arquitectura
 
-El proyecto está estructurado con módulos específicos por plataforma:
-
 ```
 src/
-├── main.rs          # Punto de entrada principal y gestión de Twitch IRC (twitch-irc)
-├── connection.rs    # (Reservado) Lógica de conexión/abstracción futura
-├── window.rs        # Implementación GTK (Linux)
-├── windows.rs       # Implementación WinAPI (Windows)
-└── x11.rs           # Funcionalidades específicas de X11
+├── main.rs              # Punto de entrada y orquestación principal
+├── config.rs            # Sistema de configuración con validación
+├── connection.rs        # Sistema de conexión y manejo de mensajes
+├── platforms/           # Implementaciones de plataformas
+│   ├── mod.rs          # Fábrica de plataformas y gestión
+│   ├── base.rs         # Clase base abstracta para plataformas
+│   ├── twitch.rs       # Implementación específica de Twitch
+│   ├── youtube.rs      # Implementación específica de YouTube
+│   └── kick.rs         # Implementación específica de Kick
+├── emotes/             # Sistema de emotes agnóstico
+│   ├── mod.rs          # Sistema principal de emotes
+│   ├── cache.rs        # Cache inteligente de emotes
+│   ├── parser.rs       # Parser de emotes multiplataforma
+│   ├── providers.rs    # Proveedores de emotes (BTTV, FFZ, 7TV)
+│   └── renderer.rs     # Renderer de imágenes de emotes
+├── mapping/            # Sistema de mapeo de datos
+│   ├── mod.rs          # Sistema principal de mapeo
+│   ├── data_mapper.rs  # Mapeo entre formatos de plataforma
+│   ├── message_transformer.rs # Transformaciones de mensajes
+│   └── platform_adapter.rs    # Adaptadores de plataforma
+├── window.rs           # Implementación GTK (Linux)
+├── windows.rs          # Implementación WinAPI (Windows)
+└── x11.rs              # Funcionalidades X11 específicas
 ```
 
-## 🎮 Uso
+## 🔌 Sistema de Plugins
 
-1. Ejecuta la aplicación con `cargo run`
-2. La aplicación se conectará automáticamente al canal de Twitch configurado
-3. Los mensajes de chat aparecerán como ventanas flotantes en tu pantalla
-4. Cada ventana muestra:
-   - Nombre de usuario (en negrita)
-   - Contenido del mensaje
-   - Emotes de Twitch (si están presentes)
-   - Barra de progreso indicando el tiempo restante
+El sistema está diseñado para ser fácilmente extensible:
 
-## ⚙️ Configuración
+### Añadir Nueva Plataforma
 
-Actualmente el canal está hardcodeado en `main.rs`. Para cambiar el canal:
+1. Crea un nuevo archivo en `src/platforms/nueva_plataforma.rs`
+2. Implementa el trait `StreamingPlatform`
+3. Implementa el trait `PlatformCreator`
+4. Registra la plataforma en `PlatformFactory`
 
 ```rust
-client.join("tu_canal_aqui".to_owned()).unwrap();
+use async_trait::async_trait;
+use crate::connection::{StreamingPlatform, ChatMessage};
+
+pub struct NuevaPlataforma {
+    // Campos específicos de la plataforma
+}
+
+#[async_trait]
+impl StreamingPlatform for NuevaPlataforma {
+    type Error = NuevaPlataformaError;
+    
+    async fn connect(&mut self) -> Result<(), Self::Error> { /* ... */ }
+    async fn join_channel(&mut self, channel: String) -> Result<(), Self::Error> { /* ... */ }
+    async fn next_message(&mut self) -> Option<ChatMessage> { /* ... */ }
+    // ... otros métodos
+}
 ```
 
-## 📦 Dependencias
+### Añadir Nuevo Proveedor de Emotes
 
-Crates externas (mínimas sugeridas, ver Cargo.toml para exactas):
-- anyhow = "1.0.83"
-- tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
-- twitch-irc = "5.0.1"
-- rand = "0.8.5"
-- reqwest = "0.12.4"
-- winapi = { version = "0.3", features = ["winuser", "wingdi", "windef", "libloaderapi"] }
-- gtk = "0.17.1"
-- gdk = "0.17.1"
-- pango = "0.17.1"
-- glib = "0.17.8"
-- glib-macros = "0.17.8"
-- gdkx11 = "0.17"
-- x11rb = { version = "0.11.1", features = ["randr"] }
+1. Implementa el trait `EmoteProvider`
+2. Regístralo en `EmoteSystem`
 
-Dependencias de sistema:
-- Linux: pkg-config, GTK 3 (headers y dev: ej. libgtk-3-dev), X11 en ejecución, (recomendado) OpenSSL dev para TLS.
-- Windows: Rust (rustup), y una toolchain: Visual Studio Build Tools (MSVC) o MSYS2 + MinGW; con MSYS2 se recomienda instalar `mingw-w64-x86_64-gtk3` y `mingw-w64-x86_64-pkg-config` si se compila GTK.
+```rust
+use async_trait::async_trait;
+use crate::emotes::{EmoteProvider, EmoteData, EmoteError};
+
+pub struct NuevoProveedorEmotes;
+
+#[async_trait]
+impl EmoteProvider for NuevoProveedorEmotes {
+    async fn parse_emotes(&self, message: &str, emote_data: &str) -> Result<Vec<Emote>, EmoteError> { /* ... */ }
+    async fn get_channel_emotes(&self, platform: &str, channel: &str) -> Result<Vec<EmoteData>, EmoteError> { /* ... */ }
+    async fn get_global_emotes(&self) -> Result<Vec<EmoteData>, EmoteError> { /* ... */ }
+    fn provider_name(&self) -> &str { "nuevo_proveedor" }
+}
+```
+
+## 🎮 Uso Avanzado
+
+### Múltiples Conexiones
+
+Puedes conectar a múltiples canales simultáneamente:
+
+```json
+{
+  "connections": [
+    {
+      "id": "twitch_main",
+      "platform": "twitch",
+      "channel": "streamer1",
+      "enabled": true
+    },
+    {
+      "id": "youtube_secondary",
+      "platform": "youtube",
+      "channel": "UC...",
+      "enabled": true
+    },
+    {
+      "id": "kick_tertiary",
+      "platform": "kick",
+      "channel": "streamer3",
+      "enabled": true
+    }
+  ]
+}
+```
+
+### Transformaciones Personalizadas
+
+Define reglas de transformación para cada plataforma:
+
+```json
+{
+  "platforms": {
+    "twitch": {
+      "custom_settings": {
+        "transformations": [
+          {
+            "field": "content",
+            "operation": "replace",
+            "from": "palabra_baneada",
+            "to": "***"
+          },
+          {
+            "field": "username",
+            "operation": "prefix",
+            "prefix": "[Twitch] "
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+## 📊 Monitorización y Logs
+
+```json
+{
+  "logging": {
+    "level": "info",
+    "file_enabled": true,
+    "console_enabled": true,
+    "log_file_path": "overlay.log",
+    "max_file_size_mb": 10,
+    "max_files": 5
+  }
+}
+```
+
+Niveles de log disponibles: `trace`, `debug`, `info`, `warn`, `error`
+
+## 🔧 Solución de Problemas
+
+### Problemas Comunes
+
+**No se conecta a Twitch:**
+- Verifica que tu token OAuth sea válido
+- Asegúrate de que el nombre de usuario sea correcto
+- Revisa que el token comience con `oauth:`
+
+**Los emotes no aparecen:**
+- Verifica que el caché esté habilitado
+- Revisa tu conexión a internet
+- Asegúrate que los proveedores de terceros estén habilitados
+
+**Las ventanas no aparecen:**
+- En Windows, ejecuta como administrador
+- En Linux, verifica que GTK esté instalado correctamente
+- Revisa el monitor y configuración de grid
+
+### Debug Mode
+
+Ejecuta con logs detallados:
+
+```bash
+RUST_LOG=debug cargo run
+```
+
+### Verificar Configuración
+
+```bash
+cargo run -- --check-config
+```
 
 ## 🤝 Contribuir
 
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+### Guía de Contribución
 
-## 📝 Licencia
+1. **Fork** el proyecto
+2. Crea una rama: `git checkout -b feature/nueva-caracteristica`
+3. Haz tus cambios siguiendo el estilo del código
+4. Añade tests si es posible
+5. Haz commit: `git commit -m 'Agregar nueva característica'`
+6. Push: `git push origin feature/nueva-caracteristica`
+7. Abre un Pull Request
 
-Este proyecto está bajo la licencia MIT. Ver el archivo `LICENSE` para más detalles.
+### Estilo de Código
 
-## 🐛 Problemas Conocidos
+- Usar `cargo fmt` para formatear
+- Usar `cargo clippy` para linting
+- Documentar funciones públicas
+- Añadir tests para nuevas funcionalidades
 
-- En Windows, las ventanas pueden no aparecer correctamente si no se tienen los permisos adecuados
-- En Linux, requiere un servidor X11 funcionando
-- Los emotes pueden tardar en cargar dependiendo de la conexión a internet (implementado parcialmente)
-
-## 🔧 Desarrollo
-
-Para desarrollo local:
+### Tests
 
 ```bash
-# Ejecutar en modo debug
-cargo run
-
-# Ejecutar tests
+# Ejecutar todos los tests
 cargo test
 
-# Compilar para release
-cargo build --release
+# Ejecutar tests con cobertura
+cargo test -- --nocapture
+
+# Tests específicos del módulo
+cargo test platforms::twitch
 ```
 
-## 📊 Estado del Proyecto
+## 📄 Licencia
 
-- ✅ Conexión a Twitch IRC (via twitch-irc)
-- ✅ Renderizado de ventanas en Windows
-- ✅ Renderizado de ventanas en Linux
-- ✅ Barra de progreso funcional
-- ✅ Gestión de memoria y limpieza
-- 🔄 Carga de emotes (implementado parcialmente)
+Este proyecto está bajo la licencia MIT. Ver `LICENSE` para más detalles.
+
+## 🙏 Agradecimientos
+
+- [twitch-irc](https://github.com/robotty/twitch-irc) - Cliente IRC de Twitch
+- [GTK](https://www.gtk.org/) - Framework GUI para Linux
+- [BetterTTV](https://betterttv.com/) - Emotes de terceros
+- [FrankerFaceZ](https://www.frankerfacez.com/) - Emotes de terceros
+- [7TV](https://7tv.app/) - Emotes de terceros
+
+## 📊 Roadmap
+
+- [ ] Soporte completo para YouTube Live Chat
+- [ ] Implementación de Kick Chat
+- [ ] Soporte para Trovo
+- [ ] Sistema de plugins dinámicos
+- [ ] Interfaz GUI para configuración
+- [ ] Modo de observación (sin overlay)
+- [ ] Estadísticas y analytics
+- [ ] Temas y personalización avanzada
+- [ ] Integración con OBS
+
+## 📞 Contacto
+
+- GitHub Issues: [Reportar problemas](https://github.com/Brayan-724/overlay-native/issues)
+- Discord: [Servidor de la comunidad](https://discord.gg/...)
+
+---
+
+**Overlay Native** - Hecho con ❤️ por la comunidad de streaming

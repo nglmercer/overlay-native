@@ -1,17 +1,174 @@
 {
-  "platform": {
-    "type": "twitch",
-    "default_channel": "gohuntleo",
-    "username": "USERNAME"
+  "platforms": {
+    "twitch": {
+      "platform_type": "twitch",
+      "enabled": true,
+      "credentials": {
+        "username": "YOUR_USERNAME",
+        "oauth_token": "oauth:YOUR_OAUTH_TOKEN_HERE",
+        "client_id": null,
+        "client_secret": null,
+        "token": null
+      },
+      "settings": {
+        "max_reconnect_attempts": 5,
+        "reconnect_delay_ms": 5000,
+        "message_buffer_size": 1000,
+        "enable_emotes": true,
+        "enable_badges": true,
+        "custom_settings": {}
+      }
+    },
+    "youtube": {
+      "platform_type": "youtube",
+      "enabled": false,
+      "credentials": {
+        "username": null,
+        "oauth_token": null,
+        "client_id": "YOUR_YOUTUBE_CLIENT_ID",
+        "client_secret": "YOUR_YOUTUBE_CLIENT_SECRET",
+        "token": null
+      },
+      "settings": {
+        "max_reconnect_attempts": 3,
+        "reconnect_delay_ms": 3000,
+        "message_buffer_size": 500,
+        "enable_emotes": true,
+        "enable_badges": false,
+        "custom_settings": {
+          "api_key": "YOUR_YOUTUBE_API_KEY"
+        }
+      }
+    },
+    "kick": {
+      "platform_type": "kick",
+      "enabled": false,
+      "credentials": {
+        "username": null,
+        "oauth_token": null,
+        "client_id": null,
+        "client_secret": null,
+        "token": null
+      },
+      "settings": {
+        "max_reconnect_attempts": 3,
+        "reconnect_delay_ms": 4000,
+        "message_buffer_size": 800,
+        "enable_emotes": true,
+        "enable_badges": true,
+        "custom_settings": {}
+      }
+    }
   },
+  "connections": [
+    {
+      "id": "twitch_main",
+      "platform": "twitch",
+      "channel": "shadoune666",
+      "enabled": true,
+      "filters": {
+        "min_message_length": null,
+        "max_message_length": 500,
+        "blocked_users": ["spamuser123", "bot_example"],
+        "allowed_users": [],
+        "blocked_words": ["spam", "advertisement"],
+        "commands_only": false,
+        "subscribers_only": false,
+        "vip_only": false
+      },
+      "display_name": "Main Twitch Chat"
+    },
+    {
+      "id": "twitch_secondary",
+      "platform": "twitch",
+      "channel": "apika_luca",
+      "enabled": false,
+      "filters": {
+        "min_message_length": 1,
+        "max_message_length": 300,
+        "blocked_users": [],
+        "allowed_users": ["moderator_user"],
+        "blocked_words": [],
+        "commands_only": false,
+        "subscribers_only": false,
+        "vip_only": false
+      },
+      "display_name": "Secondary Twitch Chat"
+    },
+    {
+      "id": "youtube_main",
+      "platform": "youtube",
+      "channel": "CHANNEL_ID_HERE",
+      "enabled": false,
+      "filters": {
+        "min_message_length": null,
+        "max_message_length": 200,
+        "blocked_users": [],
+        "allowed_users": [],
+        "blocked_words": [],
+        "commands_only": false,
+        "subscribers_only": false,
+        "vip_only": false
+      },
+      "display_name": "YouTube Live Chat"
+    },
+    {
+      "id": "kick_main",
+      "platform": "kick",
+      "channel": "streamer_channel",
+      "enabled": false,
+      "filters": {
+        "min_message_length": null,
+        "max_message_length": 400,
+        "blocked_users": [],
+        "allowed_users": [],
+        "blocked_words": [],
+        "commands_only": false,
+        "subscribers_only": false,
+        "vip_only": false
+      },
+      "display_name": "Kick Chat"
+    }
+  ],
   "window": {
     "message_duration_seconds": 10,
     "max_windows": 100,
-    "test_message": "TEST"
+    "test_message": "TEST MESSAGE",
+    "animation_enabled": true,
+    "fade_in_duration_ms": 300,
+    "fade_out_duration_ms": 500
   },
   "display": {
     "monitor_margin": 40,
     "window_size": 200,
-    "grid_size": 100
+    "grid_size": 100,
+    "font_family": "Arial",
+    "font_size": 14,
+    "background_color": "#1e1e1e",
+    "text_color": "#ffffff",
+    "username_color": "#00ff00",
+    "border_radius": 8,
+    "opacity": 0.9
+  },
+  "emotes": {
+    "enable_global_emotes": true,
+    "enable_channel_emotes": true,
+    "enable_subscriber_emotes": true,
+    "enable_bttv": true,
+    "enable_ffz": true,
+    "enable_7tv": true,
+    "emote_size": "medium",
+    "emote_animation": true,
+    "max_emotes_per_message": 50,
+    "cache_enabled": true,
+    "cache_ttl_hours": 24
+  },
+  "logging": {
+    "level": "info",
+    "file_enabled": true,
+    "console_enabled": true,
+    "log_file_path": "overlay.log",
+    "max_file_size_mb": 10,
+    "max_files": 5
   }
 }
