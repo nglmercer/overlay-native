@@ -115,7 +115,7 @@
     {
       "id": "kick_main",
       "platform": "kick",
-      "channel": "rodiksama",
+      "channel": "spreen",
       "enabled": true,
       "filters": {
         "min_message_length": null,

@@ -211,10 +211,20 @@ struct AppState {
 impl AppState {
     async fn new() -> Result<Self> {
         // Cargar configuración
+        println!("[CONFIG] Loading configuration...");
         let config = Config::load_default().unwrap_or_else(|e| {
-            eprintln!("Error loading config: {}, using defaults", e);
+            eprintln!("[CONFIG] Error loading config: {}, using defaults", e);
             Config::default()
         });
+
+        // Mostrar información de configuración cargada
+        println!("[CONFIG] ✅ Configuration loaded successfully");
+        println!("[CONFIG] Enabled platforms: {:?}", config.get_enabled_platforms());
+        println!("[CONFIG] Enabled connections: {}", config.get_enabled_connections().len());
+        for conn in config.get_enabled_connections() {
+            println!("[CONFIG]   - {} ({} platform, channel: '{}')",
+                     conn.id, conn.platform, conn.channel);
+        }
 
         // Crear sistemas
         let platform_manager = Arc::new(RwLock::new(PlatformManager::new()));
@@ -276,14 +286,13 @@ impl AppState {
         let mut manager = self.platform_manager.write().await;
         let enabled_connections = self.config.get_enabled_connections();
 
-        eprintln!(
-            "[DEBUG] Starting connections. Found {} enabled connections",
-            enabled_connections.len()
+        println!("[CONNECTIONS] Starting connections. Found {} enabled connections",
+                 enabled_connections.len()
         );
 
         for connection in enabled_connections {
-            eprintln!(
-                "[DEBUG] Processing connection: {} (platform: {}, channel: {})",
+            println!(
+                "[CONNECTIONS] 🔄 Processing connection: {} (platform: {}, channel: '{}')",
                 connection.id, connection.platform, connection.channel
             );
 
@@ -297,22 +306,22 @@ impl AppState {
             });
 
             // Iniciar conexión
-            eprintln!("[DEBUG] Attempting to start connection: {}", connection.id);
+            println!("[CONNECTIONS] 🚀 Attempting to start connection: {}", connection.id);
             match manager.start_connection(&connection.id).await {
                 Ok(_) => {
                     println!(
-                        "✅ Connected to {} on {} ({})",
+                        "✅ Connected to '{}' on {} ({})",
                         connection.channel, connection.platform, connection.id
                     );
-                    eprintln!("[DEBUG] Successfully started connection: {}", connection.id);
+                    println!("[CONNECTIONS] ✅ Successfully started connection: {}", connection.id);
                 }
                 Err(e) => {
                     eprintln!(
-                        "❌ Failed to connect to {} on {}: {}",
+                        "❌ Failed to connect to '{}' on {}: {}",
                         connection.channel, connection.platform, e
                     );
                     eprintln!(
-                        "[DEBUG] Connection start failed for {}: {}",
+                        "[CONNECTIONS] ❌ Connection start failed for {}: {}",
                         connection.id, e
                     );
                 }

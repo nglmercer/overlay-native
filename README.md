@@ -144,12 +144,16 @@ cargo run
     "platform_type": "kick",
     "enabled": false,
     "credentials": {
-      "username": "tu_usuario",
-      "token": "tu_token"
+      "username": null,
+      "oauth_token": null,
+      "client_id": null,
+      "client_secret": null,
+      "token": null
     }
   }
 }
 ```
+**🔓 No Authentication Required**: Kick allows anonymous access to public channels. You can connect to any Kick channel without providing any authentication tokens or user ID.
 
 ### Sistema de Emotes
 
@@ -347,6 +351,76 @@ Define reglas de transformación para cada plataforma:
   }
 }
 ```
+
+## 🔓 Kick - Conexión Anónima
+
+Kick permite conectarse a cualquier canal público sin necesidad de autenticación. Esta es una característica única que facilita el acceso a los chats:
+
+### Configuración Mínima
+
+```json
+{
+  "platforms": {
+    "kick": {
+      "platform_type": "kick",
+      "enabled": true,
+      "credentials": {
+        "username": null,
+        "oauth_token": null,
+        "client_id": null,
+        "client_secret": null,
+        "token": null
+      }
+    }
+  },
+  "connections": [
+    {
+      "id": "kick_anon",
+      "platform": "kick",
+      "channel": "xqc",
+      "enabled": true
+    }
+  ]
+}
+```
+
+### Ejemplo de Uso en Código
+
+```rust
+use overlay_native::config::{Credentials, PlatformConfig, PlatformSettings, PlatformType};
+use overlay_native::platforms::PlatformFactory;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let factory = PlatformFactory::new();
+    
+    // Crear plataforma Kick sin autenticación
+    let mut platform = factory.create_platform("kick", PlatformConfig {
+        platform_type: PlatformType::Kick,
+        enabled: true,
+        credentials: Credentials::default(), // ← Sin autenticación!
+        settings: PlatformSettings::default(),
+    }).await?;
+    
+    // Conectar y unirse a cualquier canal público
+    platform.connect().await?;
+    platform.join_channel("xqc".to_string()).await?;
+    
+    // Escuchar mensajes
+    while let Some(msg) = platform.next_message().await {
+        println!("{}: {}", msg.username, msg.content);
+    }
+    
+    Ok(())
+}
+```
+
+**Ventajas de la Conexión Anónima:**
+- ✅ Sin necesidad de registrar cuenta
+- ✅ Sin tokens OAuth ni API keys
+- ✅ Acceso instantáneo a cualquier canal público
+- ✅ Ideal para testing y desarrollo
+- ✅ Funciona con todos los canales públicos de Kick
 
 ## 📊 Monitorización y Logs
 

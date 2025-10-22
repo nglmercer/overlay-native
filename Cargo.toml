@@ -18,6 +18,10 @@ path = "src/main.rs"
 name = "test_emotes"
 path = "src/bin/test_emotes.rs"
 
+[[example]]
+name = "kick_example"
+path = "examples/kick_example.rs"
+
 [dependencies]
 
 anyhow = "1.0.83"
@@ -32,11 +36,13 @@ async-trait = "0.1"
 thiserror = "1.0.61"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.10.4"
+md5 = "0.7.0"
 futures = "0.3.30"
 tokio-tungstenite = { version = "0.20.1", features = ["native-tls"] }
 url = "2.5.0"
 serde_with = "3.4.0"
 tempfile = "3.10.0"
+kick-rust = "0.1.0"
 
 [dev-dependencies]
 mockall = "0.11.4"

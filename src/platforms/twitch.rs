@@ -440,6 +440,14 @@ impl StreamingPlatform for TwitchPlatform {
     ) -> bool {
         self.base.apply_message_filters(message, filters)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 /// Creador de plataforma Twitch
@@ -528,6 +536,14 @@ impl StreamingPlatform for TwitchPlatformWrapper {
         filters: &crate::config::MessageFilters,
     ) -> bool {
         self.inner.apply_message_filters(message, filters)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        &mut self.inner
     }
 }
 

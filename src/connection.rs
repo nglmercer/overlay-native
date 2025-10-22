@@ -202,6 +202,12 @@ pub trait StreamingPlatform {
         message: &mut ChatMessage,
         filters: &crate::config::MessageFilters,
     ) -> bool;
+
+    /// Permite downcasting a tipos concretos para acceder a métodos específicos
+    fn as_any(&self) -> &dyn std::any::Any;
+
+    /// Permite downcasting mutable a tipos concretos para acceder a métodos específicos
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
 pub struct PlatformManager {

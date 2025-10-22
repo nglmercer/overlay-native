@@ -132,6 +132,14 @@ impl StreamingPlatform for TwitchPlatform {
     fn is_connected(&self) -> bool {
         self.connected
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl Default for TwitchPlatform {

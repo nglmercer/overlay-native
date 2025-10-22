@@ -239,13 +239,24 @@ impl Config {
     pub fn load_with_fallback<P: AsRef<Path>>(external_path: P) -> Result<Self, ConfigError> {
         // Intentar cargar configuración externa
         match Self::load_from_file(&external_path) {
-            Ok(config) => Ok(config),
-            Err(_) => {
+            Ok(config) => {
+                println!("[CONFIG] ✅ External config loaded from: {:?}", external_path.as_ref());
+                Self::log_loaded_config(&config);
+                Ok(config)
+            },
+            Err(e) => {
+                println!("[CONFIG] ⚠️ Could not load external config from {:?}: {}", external_path.as_ref(), e);
+                println!("[CONFIG] 🔄 Creating default config file...");
+
                 // Si el archivo externo no existe o hay error, crearlo con valores por defecto
                 let default_config = Self::default();
                 if let Err(e) = default_config.save_to_file(&external_path) {
-                    eprintln!("Warning: Could not create external config file: {}", e);
+                    eprintln!("[CONFIG] ❌ Warning: Could not create external config file: {}", e);
+                } else {
+                    println!("[CONFIG] ✅ Default config saved to: {:?}", external_path.as_ref());
                 }
+
+                Self::log_loaded_config(&default_config);
                 Ok(default_config)
             }
         }
@@ -283,6 +294,31 @@ impl Config {
 
     pub fn get_platform_config(&self, platform_name: &str) -> Option<&PlatformConfig> {
         self.platforms.get(platform_name)
+    }
+
+    /// Log the loaded configuration for debugging purposes
+    fn log_loaded_config(config: &Config) {
+        println!("[CONFIG] 📊 Configuration Summary:");
+        println!("[CONFIG]   Platforms: {} ({} enabled)",
+                 config.platforms.len(),
+                 config.get_enabled_platforms().len());
+        println!("[CONFIG]   Connections: {} ({} enabled)",
+                 config.connections.len(),
+                 config.get_enabled_connections().len());
+
+        for platform_name in config.get_enabled_platforms() {
+            if let Some(platform_config) = config.get_platform_config(platform_name) {
+                println!("[CONFIG]     - {}: enabled={}, credentials={}",
+                         platform_name,
+                         platform_config.enabled,
+                         if platform_config.credentials.username.is_some() { "set" } else { "none" });
+            }
+        }
+
+        for conn in config.get_enabled_connections() {
+            println!("[CONFIG]     - Connection '{}' -> {} @ channel '{}'",
+                     conn.id, conn.platform, conn.channel);
+        }
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
@@ -396,7 +432,7 @@ impl Default for Config {
                 ConnectionConfig {
                     id: "kick_main".to_string(),
                     platform: "kick".to_string(),
-                    channel: "rodiksama".to_string(),
+                    channel: "spreen".to_string(),
                     enabled: true, // Habilitado por defecto, Kick no requiere autenticación
                     filters: MessageFilters {
                         min_message_length: None,
