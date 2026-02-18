@@ -27,6 +27,7 @@ pub struct GtkWindow {
     created: Instant,
 
     /// Display duration
+    #[allow(dead_code)]
     duration: Duration,
 }
 

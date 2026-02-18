@@ -209,18 +209,15 @@ impl Default for EmoteConfig {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum EmoteSize {
     Small,
+    #[default]
     Medium,
     Large,
     ExtraLarge,
 }
 
-impl Default for EmoteSize {
-    fn default() -> Self {
-        EmoteSize::Medium
-    }
-}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct LoggingConfig {

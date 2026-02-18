@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub struct EmoteRenderer {
     cache_dir: PathBuf,
     max_cache_size_mb: u64,
+    #[allow(dead_code)]
     supported_formats: Vec<String>,
     scaling_factor: f32,
     default_size: (u32, u32),

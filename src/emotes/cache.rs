@@ -144,7 +144,8 @@ impl EmoteCache {
 
     /// Obtiene las estadísticas del cache
     pub fn stats(&mut self) -> CacheStats {
-        let stats = CacheStats {
+        
+        CacheStats {
             size: self.cache.len(),
             max_size: self.max_size,
             hit_count: self.hit_count,
@@ -156,8 +157,7 @@ impl EmoteCache {
             },
             ttl_seconds: self.ttl.as_secs(),
             last_cleanup: self.last_cleanup,
-        };
-        stats
+        }
     }
 
     /// Resetea las estadísticas del cache

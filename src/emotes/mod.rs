@@ -7,7 +7,6 @@ pub mod renderer;
 pub use cache::{EmoteCache, EmoteCache as Cache};
 pub use parser::EmoteParser;
 pub use providers::{EmoteApiClient, TwitchEmoteProvider, BTTVEmoteProvider, FFZEmoteProvider, SevenTVEmoteProvider};
-pub use providers::EmoteProvider;
 pub use renderer::EmoteRenderer;
 
 use serde::{Deserialize, Serialize};
@@ -18,6 +17,7 @@ pub struct EmoteSystem {
     pub cache: EmoteCache,
     providers: HashMap<String, Box<dyn EmoteProvider>>,
     parser: EmoteParser,
+    #[allow(dead_code)]
     renderer: EmoteRenderer,
     config: crate::config::EmoteConfig,
 }

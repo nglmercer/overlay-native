@@ -224,10 +224,10 @@ pub fn a(
 }
 
 pub fn b(w: crate::window::Window, monitor_geometry: gdk::Rectangle, geometry: WindowGeometry) {
-    let _ = apply_window_position(geometry, monitor_geometry, &w);
+    apply_window_position(geometry, monitor_geometry, &w);
     if true {
         w.connect_configure_event(move |window, _| {
-            let _ = apply_window_position(geometry, monitor_geometry, window);
+            apply_window_position(geometry, monitor_geometry, window);
             false
         });
     }

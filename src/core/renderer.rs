@@ -34,7 +34,7 @@ pub enum RenderError {
 #[derive(Debug, Clone)]
 pub enum RenderEvent {
     /// A new element should be displayed
-    ElementQueued(OverlayElement),
+    ElementQueued(Box<OverlayElement>),
 
     /// An element has finished its display duration
     ElementExpired(String),

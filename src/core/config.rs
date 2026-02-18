@@ -8,6 +8,7 @@ use std::time::Duration;
 
 /// Configuration for the core renderer
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CoreConfig {
     /// Window/message display settings
     pub window: WindowSettings,
@@ -22,16 +23,6 @@ pub struct CoreConfig {
     pub processing: ProcessingSettings,
 }
 
-impl Default for CoreConfig {
-    fn default() -> Self {
-        Self {
-            window: WindowSettings::default(),
-            animation: AnimationSettings::default(),
-            display: DisplaySettings::default(),
-            processing: ProcessingSettings::default(),
-        }
-    }
-}
 
 /// Window display settings
 #[derive(Debug, Clone, Serialize, Deserialize)]

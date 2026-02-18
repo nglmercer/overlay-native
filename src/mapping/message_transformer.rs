@@ -5,6 +5,7 @@ use std::collections::HashMap;
 /// Transformer que aplica transformaciones a mensajes estandarizados
 pub struct MessageTransformer {
     transformers: Vec<Box<dyn MessageTransform>>,
+    #[allow(dead_code)]
     config: MappingConfig,
     regex_cache: HashMap<String, Regex>,
 }
@@ -405,50 +406,50 @@ impl MessageTransformer {
     ) -> bool {
         use crate::mapping::UserLevel;
 
-        match (current, required) {
-            (_, UserLevel::Normal) => true,
-            (
-                UserLevel::Subscriber
-                | UserLevel::Vip
-                | UserLevel::Moderator
-                | UserLevel::Broadcaster
-                | UserLevel::Staff
-                | UserLevel::Admin
-                | UserLevel::GlobalModerator,
-                UserLevel::Subscriber,
-            ) => true,
-            (
-                UserLevel::Vip
-                | UserLevel::Moderator
-                | UserLevel::Broadcaster
-                | UserLevel::Staff
-                | UserLevel::Admin
-                | UserLevel::GlobalModerator,
-                UserLevel::Vip,
-            ) => true,
-            (
-                UserLevel::Moderator
-                | UserLevel::Broadcaster
-                | UserLevel::Staff
-                | UserLevel::Admin
-                | UserLevel::GlobalModerator,
-                UserLevel::Moderator,
-            ) => true,
-            (
-                UserLevel::Broadcaster
-                | UserLevel::Staff
-                | UserLevel::Admin
-                | UserLevel::GlobalModerator,
-                UserLevel::Broadcaster,
-            ) => true,
-            (
-                UserLevel::Staff | UserLevel::Admin | UserLevel::GlobalModerator,
-                UserLevel::Staff,
-            ) => true,
-            (UserLevel::Admin | UserLevel::GlobalModerator, UserLevel::Admin) => true,
-            (UserLevel::GlobalModerator, UserLevel::GlobalModerator) => true,
-            _ => false,
-        }
+        matches!(
+            (current, required),
+            (_, UserLevel::Normal)
+                | (
+                    UserLevel::Subscriber
+                        | UserLevel::Vip
+                        | UserLevel::Moderator
+                        | UserLevel::Broadcaster
+                        | UserLevel::Staff
+                        | UserLevel::Admin
+                        | UserLevel::GlobalModerator,
+                    UserLevel::Subscriber
+                )
+                | (
+                    UserLevel::Vip
+                        | UserLevel::Moderator
+                        | UserLevel::Broadcaster
+                        | UserLevel::Staff
+                        | UserLevel::Admin
+                        | UserLevel::GlobalModerator,
+                    UserLevel::Vip
+                )
+                | (
+                    UserLevel::Moderator
+                        | UserLevel::Broadcaster
+                        | UserLevel::Staff
+                        | UserLevel::Admin
+                        | UserLevel::GlobalModerator,
+                    UserLevel::Moderator
+                )
+                | (
+                    UserLevel::Broadcaster
+                        | UserLevel::Staff
+                        | UserLevel::Admin
+                        | UserLevel::GlobalModerator,
+                    UserLevel::Broadcaster
+                )
+                | (
+                    UserLevel::Staff | UserLevel::Admin | UserLevel::GlobalModerator,
+                    UserLevel::Staff
+                )
+                | (UserLevel::Admin | UserLevel::GlobalModerator, UserLevel::Admin)
+                | (UserLevel::GlobalModerator, UserLevel::GlobalModerator)
+        )
     }
 
     /// Obtiene o compila una expresión regex (con cache)
@@ -539,6 +540,12 @@ impl MessageTransform for ContentFilter {
 /// Transformer que añade prefijos/sufijos basados en nivel de usuario
 pub struct UserLevelPrefix {
     prefixes: HashMap<crate::mapping::UserLevel, String>,
+}
+
+impl Default for UserLevelPrefix {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl UserLevelPrefix {

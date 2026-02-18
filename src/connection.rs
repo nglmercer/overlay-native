@@ -77,6 +77,7 @@ pub struct TextPosition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct EmoteMetadata {
     pub is_zero_width: bool,
     pub modifier: bool,
@@ -84,16 +85,6 @@ pub struct EmoteMetadata {
     pub tier: Option<String>, // para subscriber emotes
 }
 
-impl Default for EmoteMetadata {
-    fn default() -> Self {
-        Self {
-            is_zero_width: false,
-            modifier: false,
-            emote_set_id: None,
-            tier: None,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageMetadata {
@@ -122,10 +113,8 @@ pub enum MessageType {
     Unknown,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-#[derive(PartialEq, Eq, Hash)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EmoteSource {
     Twitch,
     TwitchGlobal,
@@ -491,7 +480,7 @@ impl PlatformManager {
     }
 
     pub async fn shutdown(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        for (_, platform) in &mut self.platforms {
+        for platform in self.platforms.values_mut() {
             platform.lock().await.disconnect().await?;
         }
         Ok(())
@@ -710,6 +699,14 @@ mod tests {
             _filters: &MessageFilters,
         ) -> bool {
             true
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
         }
     }
 

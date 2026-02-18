@@ -216,11 +216,11 @@ async fn load_emote_(
 /// Get the monitor geometry of a given monitor, or the default if none is given
 pub fn get_gdk_monitor() -> Monitor {
     let display = gdk::Display::default().expect("could not get default display");
-    let monitor = display
-            .primary_monitor()
-            .expect("Failed to get primary monitor from GTK. Try explicitly specifying the monitor on your window.");
+    
 
-    monitor
+    display
+            .primary_monitor()
+            .expect("Failed to get primary monitor from GTK. Try explicitly specifying the monitor on your window.")
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -244,21 +244,20 @@ pub struct AnchorPoint {
 
 impl std::fmt::Display for AnchorPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use AnchorAlignment::*;
         match (self.x, self.y) {
-            (CENTER, CENTER) => write!(f, "center"),
+            (AnchorAlignment::Center, AnchorAlignment::Center) => write!(f, "center"),
             (x, y) => write!(
                 f,
                 "{} {}",
                 match x {
-                    START => "left",
-                    CENTER => "center",
-                    END => "right",
+                    AnchorAlignment::Start => "left",
+                    AnchorAlignment::Center => "center",
+                    AnchorAlignment::End => "right",
                 },
                 match y {
-                    START => "top",
-                    CENTER => "center",
-                    END => "bottom",
+                    AnchorAlignment::Start => "top",
+                    AnchorAlignment::Center => "center",
+                    AnchorAlignment::End => "bottom",
                 }
             ),
         }
@@ -266,17 +265,14 @@ impl std::fmt::Display for AnchorPoint {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Default)]
 pub enum AnchorAlignment {
+    #[default]
     Start,
     Center,
     End,
 }
 
-impl Default for AnchorAlignment {
-    fn default() -> Self {
-        Self::Start
-    }
-}
 
 impl AnchorAlignment {
     pub fn alignment_to_coordinate(&self, size_inner: i32, size_container: i32) -> i32 {

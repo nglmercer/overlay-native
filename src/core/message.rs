@@ -237,6 +237,7 @@ impl Default for Emote {
 /// Emote source/origin
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum EmoteSource {
     /// Platform-specific emote
     Platform(String),
@@ -245,14 +246,10 @@ pub enum EmoteSource {
     ThirdParty(String),
 
     /// Local/custom emote
+    #[default]
     Local,
 }
 
-impl Default for EmoteSource {
-    fn default() -> Self {
-        EmoteSource::Local
-    }
-}
 
 impl std::fmt::Display for EmoteSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

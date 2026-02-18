@@ -13,9 +13,11 @@ struct BTTVEmote {
     id: String,
     code: String,
     #[serde(rename = "imageType")]
+    #[allow(dead_code)]
     image_type: String,
     animated: bool,
     #[serde(rename = "userId")]
+    #[allow(dead_code)]
     user_id: String,
     modifier: bool,
     width: Option<u32>,
@@ -29,6 +31,7 @@ type BTTVGlobalResponse = Vec<BTTVEmote>;
 #[derive(Clone)]
 pub struct EmoteApiClient {
     client: Client,
+    #[allow(dead_code)]
     timeout: Duration,
 }
 
@@ -127,6 +130,7 @@ impl Default for EmoteApiClient {
 
 /// Proveedor de emotes de Twitch
 pub struct TwitchEmoteProvider {
+    #[allow(dead_code)]
     api_client: EmoteApiClient,
 }
 
@@ -230,11 +234,13 @@ impl EmoteProvider for TwitchEmoteProvider {
             channel
         );
 
+        #[allow(dead_code)]
         #[derive(Deserialize)]
         struct TwitchEmoteResponse {
             data: Vec<TwitchEmote>,
         }
 
+        #[allow(dead_code)]
         #[derive(Deserialize)]
         struct TwitchEmote {
             id: String,
@@ -244,6 +250,7 @@ impl EmoteProvider for TwitchEmoteProvider {
             tier: Option<String>,
         }
 
+        #[allow(dead_code)]
         #[derive(Deserialize)]
         struct TwitchEmoteImages {
             #[serde(rename = "url_1x")]
@@ -433,6 +440,7 @@ impl FFZEmoteProvider {
 
         #[derive(Deserialize)]
         struct FFZRoom {
+            #[allow(dead_code)]
             id: u32,
             set: u32,
         }
@@ -500,7 +508,7 @@ impl FFZEmoteProvider {
             animated: Option<bool>,
         }
 
-        let response: FFZGlobalResponse = self.api_client.get_json(&url).await?;
+        let response: FFZGlobalResponse = self.api_client.get_json(url).await?;
         let mut emotes = Vec::new();
 
         for set in response.sets.values() {
@@ -608,6 +616,7 @@ impl SevenTVEmoteProvider {
 
         #[derive(Deserialize)]
         struct SevenTVEmoteData {
+            #[allow(dead_code)]
             name: String,
             flags: u32,
             animated: bool,
@@ -653,12 +662,13 @@ impl SevenTVEmoteProvider {
 
         #[derive(Deserialize)]
         struct SevenTVEmoteData {
+            #[allow(dead_code)]
             name: String,
             flags: u32,
             animated: bool,
         }
 
-        let response: SevenTVGlobalResponse = self.api_client.get_json(&url).await?;
+        let response: SevenTVGlobalResponse = self.api_client.get_json(url).await?;
         let mut emotes = Vec::new();
 
         for emote in response.emotes {

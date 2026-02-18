@@ -108,7 +108,7 @@ async fn main() {
     }
 }
 
-async fn test_provider(name: &str, provider: &dyn EmoteProvider) -> Result<usize, String> {
+async fn test_provider(_name: &str, provider: &dyn EmoteProvider) -> Result<usize, String> {
     println!("   🔄 Fetching global emotes...");
 
     match provider.get_global_emotes().await {

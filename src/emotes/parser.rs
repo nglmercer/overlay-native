@@ -137,7 +137,7 @@ impl EmoteParser {
                 emotes.push(Emote {
                     id: emote_info.id.clone(),
                     name: emote_info.name.clone(),
-                    source: emote_info.source.clone(),
+                    source: emote_info.source,
                     positions: vec![TextPosition {
                         start: start_pos,
                         end: end_pos,
@@ -287,7 +287,7 @@ impl EmoteParser {
         let mut distribution = HashMap::new();
 
         for emote_info in self.known_emotes.values() {
-            *distribution.entry(emote_info.source.clone()).or_insert(0) += 1;
+            *distribution.entry(emote_info.source).or_insert(0) += 1;
         }
 
         distribution
