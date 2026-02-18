@@ -11,6 +11,8 @@
 //! Run with: cargo run --bin test_windows
 
 #[cfg(unix)]
+use gdk::prelude::MonitorExt;
+#[cfg(unix)]
 use gdk::Rectangle;
 use overlay_native::config::{Config, DisplayConfig, WindowConfig};
 #[cfg(unix)]
