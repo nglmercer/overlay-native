@@ -22,10 +22,10 @@
 //! The core module receives validated messages from the transport layer
 //! and handles all rendering decisions independently of the source platform.
 
-pub mod renderer;
-pub mod message;
 pub mod config;
+pub mod message;
+pub mod renderer;
 
-pub use renderer::*;
-pub use message::*;
 pub use config::*;
+pub use message::*;
+pub use renderer::*;

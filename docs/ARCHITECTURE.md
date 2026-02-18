@@ -1,92 +1,247 @@
 # Arquitectura de Overlay Native
 
-Overlay Native es una aplicación multiplataforma que consume Twitch IRC usando el crate twitch-irc y renderiza overlays nativos por plataforma. La arquitectura separa la lógica de negocio de las implementaciones específicas de plataforma.
+Overlay Native es una aplicación multiplataforma de overlay que recibe mensajes de plataformas de streaming a través de una capa de transporte agnóstica (IPC/WebSocket). La arquitectura separa completamente la lógica de plataformas del renderizado, permitiendo que cualquier fuente externa envíe mensajes validados.
+
+## Arquitectura General
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    EXTERNAL PLATFORM SERVICES                           │
+│   (Twitch Bridge, Kick Bridge, YouTube Bridge, Custom Clients)         │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         TRANSPORT LAYER                                 │
+│                    (IPC, WebSocket, HTTP API)                           │
+│                                                                         │
+│  ┌─────────────┐    ┌─────────────┐    ┌──────────────┐               │
+│  │    IPC      │    │  WebSocket  │    │  Validation  │               │
+│  │  (Local)    │    │  (Remote)   │    │   (Schema)   │               │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬───────┘               │
+│         └──────────────────┼──────────────────┘                        │
+└────────────────────────────┼────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            CORE LAYER                                   │
+│                   (Platform-Agnostic Rendering)                         │
+│                                                                         │
+│  • Message types (ChatMessageElement, GiftElement, EmoteElement)       │
+│  • Core renderer with filtering and queuing                            │
+│  • Configuration management                                             │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          RENDER LAYER                                   │
+│                   (Platform-Specific Rendering)                         │
+│                                                                         │
+│  ┌────────────────────────┐    ┌────────────────────────┐             │
+│  │      Linux/GTK         │    │     Windows/Win32      │             │
+│  │  • GTK Window          │    │  • HWND Window         │             │
+│  │  • X11 Integration     │    │  • GDI Rendering       │             │
+│  │  • Progress Bar        │    │  • Progress Bar        │             │
+│  └────────────────────────┘    └────────────────────────┘             │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Estructura del Proyecto
 
 ```
 src/
-├── main.rs          # Punto de entrada y gestión del cliente Twitch IRC (twitch-irc)
-├── connection.rs    # (Reservado) Abstracción futura de conexión
-├── window.rs        # Implementación GTK (Linux)
-├── windows.rs       # Implementación WinAPI (Windows)
-└── x11.rs           # Funcionalidades específicas de X11
+├── main.rs              # Punto de entrada
+├── lib.rs               # Exports de la librería con documentación
+│
+├── core/                # ⭐ Núcleo agnóstico de plataforma
+│   ├── mod.rs           # Exports del core
+│   ├── config.rs        # Configuración del renderer
+│   ├── message.rs       # Tipos de mensajes agnósticos
+│   └── renderer.rs      # Motor de renderizado con filtrado
+│
+├── transport/           # ⭐ Capa de transporte (API de entrada)
+│   ├── mod.rs           # Exports y documentación
+│   ├── bridge.rs        # Puente transporte → core
+│   ├── schema.rs        # Esquema de validación de mensajes
+│   ├── ipc.rs           # Servidor IPC (Unix sockets/Named pipes)
+│   └── websocket.rs     # Servidor WebSocket
+│
+├── render/              # ⭐ NUEVO: Renderizado específico de SO
+│   ├── mod.rs           # Trait PlatformWindow y configuración
+│   ├── gtk.rs           # Implementación GTK para Linux
+│   └── win32.rs         # Implementación Win32 para Windows
+│
+├── config.rs            # Configuración global legacy
+├── connection.rs        # Tipos de conexión legacy
+├── platforms/           # Gestor de credenciales (legacy)
+├── emotes/              # Sistema de emotes
+├── mapping/             # Transformación de datos
+│
+├── window.rs            # (Legacy) GTK implementation
+├── windows.rs           # (Legacy) WinAPI implementation
+└── x11.rs               # Utilidades X11 para Linux
 ```
-
-## Módulos y Responsabilidades
-
-- main.rs: Inicializa el runtime (Tokio), configura y arranca el cliente de Twitch usando twitch-irc, recibe eventos de chat y crea ventanas overlay por mensaje.
-- connection.rs: Espacio reservado para una futura abstracción (actualmente sin lógica productiva).
-- window.rs: Crea y administra ventanas GTK, con etiqueta, barra de progreso y carga básica de emotes.
-- windows.rs: Administra ventanas WinAPI, incluyendo creación/destrucción y actualización del progreso.
-- x11.rs: Utilidades X11 (e.g., propiedades de ventana) para mejorar integración en Linux.
 
 ## Flujo de Datos
 
 ```
-Twitch (IRC) -> twitch-irc (cliente) -> main.rs (handler) -> {window.rs | windows.rs} -> Overlay en pantalla
+Plataforma Externa
+       │
+       │ (JSON via WebSocket/IPC)
+       ▼
+┌──────────────────┐
+│  WebSocket/IPC   │
+│    Servidor      │
+└────────┬─────────┘
+         │
+         │ WsEvent
+         ▼
+┌──────────────────┐     ┌──────────────────┐
+│  Transport       │     │  Validación     │
+│  Bridge          │────►│  (Schema)        │
+└────────┬─────────┘     └────────┬─────────┘
+         │                        │
+         │ IncomingMessage        │ ChatMessagePayload
+         │ (validado)             │ (validado)
+         ▼                        ▼
+┌──────────────────┐     ┌──────────────────┐
+│  Core            │◄────│  Conversión       │
+│  Renderer        │     │  (Into<>)        │
+└────────┬─────────┘     └──────────────────┘
+         │
+         │ OverlayElement
+         ▼
+┌──────────────────┐
+│  Window          │
+│  (GTK/WinAPI)    │
+└──────────────────┘
 ```
 
-## Cliente IRC (twitch-irc)
+## Módulos y Responsabilidades
 
-En lugar de implementar el protocolo IRC manualmente, se usa el crate twitch-irc para gestionar la conexión, autenticación y parsing de mensajes. Esto reduce complejidad y errores.
+### Core (`src/core/`)
 
-Ejemplo conceptual (simplificado):
+El núcleo es **completamente agnóstico** a cualquier plataforma de streaming. Solo conoce tipos de datos genéricos.
 
-```rust
-use twitch_irc::login::StaticLoginCredentials;
-use twitch_irc::ClientConfig;
-use twitch_irc::TwitchIRCClient;
+- **config.rs**: Configuración del renderer (ventanas, animaciones, display)
+- **message.rs**: Tipos de mensajes unificados (`ChatMessageElement`, `GiftElement`, `EmoteElement`)
+- **renderer.rs**: Motor de renderizado que recibe elementos y los muestra
 
-let config = ClientConfig::default();
-let credentials = StaticLoginCredentials::new("justinfan12345".to_owned(), None);
-let (mut incoming_messages, client) = TwitchIRCClient::new(config, credentials);
-client.join("mictia00".to_owned()).unwrap();
+### Transporte (`src/transport/`)
 
-while let Some(message) = incoming_messages.recv().await {
-    // Crear overlay con window.rs o windows.rs
+Maneja la comunicación con servicios externos que actúan como bridges de plataformas.
+
+- **schema.rs**: Define el esquema de validación de mensajes entrantes
+- **websocket.rs**: Servidor WebSocket para conexiones remotas
+- **ipc.rs**: Servidor IPC (Unix Domain Sockets/Named Pipes) para local
+- **bridge.rs**: Puente que conecta transporte con el renderer
+
+### Plataforma Externa (No incluida)
+
+Los bridges de plataformas (Twitch, Kick, YouTube, etc.) son servicios externos que se conectan al overlay vía WebSocket o IPC. Deben enviar mensajes que cumplan con el esquema definido en `transport/schema.rs`.
+
+## Esquema de Mensajes
+
+Los mensajes deben enviarse como JSON con la estructura definida en `src/transport/schema.rs`:
+
+```json
+// Mensaje de chat
+{
+  "type": "chat_message",
+  "data": {
+    "id": "msg_123",
+    "username": "user123",
+    "display_name": "User123",
+    "content": "Hello world!",
+    "user_color": "#FF0000",
+    "emotes": [...],
+    "badges": [...]
+  }
+}
+
+// Gift/Subscription
+{
+  "type": "gift",
+  "data": {
+    "from_user": "gifter",
+    "to_user": "recipient",
+    "gift_type": "subscription",
+    "amount": 1,
+    "tier": "Tier 1"
+  }
+}
+
+// Emote
+{
+  "type": "emote",
+  "data": {
+    "id": "emote_123",
+    "name": "Kappa",
+    "url": "https://...",
+    "is_animated": false
+  }
 }
 ```
 
-## Ciclo de Vida de Ventanas
-
-- Creación al recibir un mensaje.
-- Posicionamiento aleatorio y transparencia.
-- Barra de progreso hasta cierre automático (~10s).
-- Liberación de recursos al destruir.
-
-## Concurrencia
-
-- Tokio para tareas asíncronas (escucha de mensajes, timers).
-- Canales/eventos entre el manejador de chat y el renderizador de ventanas.
-
-## Renderizado y Emotes
-
-- GTK (Linux) y WinAPI (Windows).
-- Emotes: soporte básico/experimental; la carga y renderizado están parcialmente implementados y pueden variar según plataforma.
-
 ## Configuración
 
-- Canal por defecto hardcodeado actualmente: "mictia00" en main.rs.
-- Futuro: archivo de configuración para credenciales/canales.
+La configuración en `config.json` ahora incluye una sección de transporte:
+
+```json
+{
+  "transport": {
+    "websocket_enabled": true,
+    "websocket_bind": "127.0.0.1:9001",
+    "ipc_enabled": true,
+    "ipc_socket_path": "/tmp/overlay-native.sock",
+    "max_connections": 100,
+    "strict_validation": true
+  },
+  "connections": [...],
+  "window": {...},
+  "emotes": {...}
+}
+```
+
+## Uso con Bridges Externos
+
+Para conectar plataformas, usa bridges externos que se comuniquen via WebSocket:
+
+1. **Inicia el overlay**: `cargo run`
+2. **Conecta un bridge**: Envía mensajes JSON al `websocket_bind` especificado
+3. **Ejemplo con WebSocket**:
+   ```javascript
+   const ws = new WebSocket('ws://127.0.0.1:9001');
+   ws.send(JSON.stringify({
+     type: 'chat_message',
+     data: {
+       username: 'test_user',
+       content: 'Hello from external bridge!'
+     }
+   }));
+   ```
+
+## Beneficios de la Arquitectura
+
+1. **Agnóstico**: El renderer no conoce ni le importa de dónde vienen los mensajes
+2. **Flexible**: Cualquier plataforma puede conectarse via WebSocket/IPC
+3. **Validado**: Todos los mensajes pasan por validación de esquema
+4. **Escalable**: Múltiples bridges pueden conectarse simultáneamente
+5. **Mantenible**: Lógica de plataformas separada del renderizado
 
 ## Dependencias Principales
 
-- twitch-irc: cliente IRC de Twitch.
-- tokio: runtime asíncrono.
-- gtk/gdk/pango/glib: stack de GUI para Linux.
-- winapi: interacciones nativas en Windows.
-- x11rb/gdkx11: integración X11.
-- reqwest: descarga de recursos (e.g., emotes).
-- rand: utilidades aleatorias para posicionamiento.
+- **tokio**: Runtime asíncrono
+- **gtk/gdk/pango/glib**: Stack de GUI para Linux
+- **winapi**: Interacciones nativas en Windows
+- **x11rb/gdkx11**: Integración X11
+- **reqwest**: Descarga de recursos
+- **serde**: Serialización de JSON
+- **tokio-tungstenite**: WebSocket server
 
-## Depuración y Métricas
+## Ciclo de Vida de Ventanas
 
-- Logs informativos al conectar a Twitch y al crear ventanas.
-- Métricas básicas: número de ventanas activas, tiempos de vida.
-
-## Roadmap (extracto)
-
-- Configuración externa.
-- Mejorar pipeline de emotes (cache, animados).
-- Tests de integración por plataforma.
+- Creación al recibir un elemento del renderer
+- Posicionamiento basado en configuración
+- Barra de progreso hasta cierre automático (~10s por defecto)
+- Liberación de recursos al destruir

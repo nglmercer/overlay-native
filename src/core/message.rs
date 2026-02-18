@@ -8,16 +8,21 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
+/// Get current system time
+fn system_time_now() -> SystemTime {
+    SystemTime::now()
+}
+
 /// Unified message type for all overlay elements
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "element_type", content = "data", rename_all = "snake_case")]
 pub enum OverlayElement {
     /// A chat message with text, emotes, and badges
     ChatMessage(ChatMessageElement),
-    
+
     /// A gift/subscription event
     Gift(GiftElement),
-    
+
     /// A single emote/sticker event
     Emote(EmoteElement),
 }
@@ -27,39 +32,39 @@ pub enum OverlayElement {
 pub struct ChatMessageElement {
     /// Unique identifier for this message
     pub id: String,
-    
+
     /// The username who sent the message
     pub username: String,
-    
+
     /// Display name (may differ from username)
     pub display_name: Option<String>,
-    
+
     /// The message content/text
     pub content: String,
-    
+
     /// User color in hex format (e.g., "#FF0000")
     pub user_color: Option<String>,
-    
+
     /// Emotes present in the message
     #[serde(default)]
     pub emotes: Vec<Emote>,
-    
+
     /// Badges/roles of the user
     #[serde(default)]
     pub badges: Vec<Badge>,
-    
+
     /// Source platform (informational only, not used for rendering)
     #[serde(default)]
     pub platform: Option<String>,
-    
+
     /// Source channel (informational only)
     #[serde(default)]
     pub channel: Option<String>,
-    
+
     /// Timestamp when message was received
-    #[serde(default)]
+    #[serde(default = "system_time_now")]
     pub timestamp: SystemTime,
-    
+
     /// Additional metadata
     #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
@@ -82,12 +87,10 @@ impl ChatMessageElement {
             metadata: HashMap::new(),
         }
     }
-    
+
     /// Get the effective display name
     pub fn effective_display_name(&self) -> &str {
-        self.display_name
-            .as_deref()
-            .unwrap_or(&self.username)
+        self.display_name.as_deref().unwrap_or(&self.username)
     }
 }
 
@@ -96,31 +99,31 @@ impl ChatMessageElement {
 pub struct GiftElement {
     /// Unique identifier
     pub id: String,
-    
+
     /// User who sent the gift
     pub from_user: String,
-    
+
     /// User who received the gift (None for community gifts)
     pub to_user: Option<String>,
-    
+
     /// Type of gift
     pub gift_type: GiftType,
-    
+
     /// Quantity (subscription months, bits amount, etc.)
     pub amount: Option<u32>,
-    
+
     /// Subscription tier (Tier 1, Tier 2, Tier 3)
     pub tier: Option<String>,
-    
+
     /// Optional message from the gifter
     pub message: Option<String>,
-    
+
     /// Source platform
     #[serde(default)]
     pub platform: Option<String>,
-    
+
     /// Timestamp
-    #[serde(default)]
+    #[serde(default = "system_time_now")]
     pub timestamp: SystemTime,
 }
 
@@ -130,19 +133,19 @@ pub struct GiftElement {
 pub enum GiftType {
     /// Subscription gift
     Subscription,
-    
+
     /// Gifted subscription (to random user)
     GiftSubscription,
-    
+
     /// Bits/cheer
     Bits,
-    
+
     /// Cheer (YouTube)
     Cheer,
-    
+
     /// Donation
     Donation,
-    
+
     /// Other/unknown type
     Other(String),
 }
@@ -152,32 +155,32 @@ pub enum GiftType {
 pub struct EmoteElement {
     /// Unique identifier
     pub id: String,
-    
+
     /// Emote name/code
     pub name: String,
-    
+
     /// URL to the emote image
     pub url: String,
-    
+
     /// Whether the emote is animated (GIF)
     #[serde(default)]
     pub is_animated: bool,
-    
+
     /// Width in pixels
     pub width: Option<u32>,
-    
+
     /// Height in pixels
     pub height: Option<u32>,
-    
+
     /// User who sent the emote
     pub sender: Option<String>,
-    
+
     /// Source platform
     #[serde(default)]
     pub platform: Option<String>,
-    
+
     /// Timestamp
-    #[serde(default)]
+    #[serde(default = "system_time_now")]
     pub timestamp: SystemTime,
 }
 
@@ -186,30 +189,30 @@ pub struct EmoteElement {
 pub struct Emote {
     /// Emote ID
     pub id: String,
-    
+
     /// Emote name
     pub name: String,
-    
-    /// Source of the emote (e.g., "twitch", "bttv", "7tv")
+
+    /// Source of the emote (e.g., "bttv", "7tv", custom)
     pub source: EmoteSource,
-    
+
     /// Positions in the text where this emote appears
     #[serde(default)]
     pub positions: Vec<TextPosition>,
-    
+
     /// URL to the emote image
     pub url: Option<String>,
-    
+
     /// Whether the emote is animated
     #[serde(default)]
     pub is_animated: bool,
-    
+
     /// Width in pixels
     pub width: Option<u32>,
-    
+
     /// Height in pixels
     pub height: Option<u32>,
-    
+
     /// Additional metadata
     #[serde(default)]
     pub metadata: EmoteMetadata,
@@ -237,10 +240,10 @@ impl Default for Emote {
 pub enum EmoteSource {
     /// Platform-specific emote
     Platform(String),
-    
+
     /// Third-party emote (BTTV, FFZ, 7TV)
     ThirdParty(String),
-    
+
     /// Local/custom emote
     Local,
 }
@@ -266,19 +269,19 @@ impl std::fmt::Display for EmoteSource {
 pub struct Badge {
     /// Badge ID
     pub id: String,
-    
+
     /// Badge name
     pub name: String,
-    
+
     /// Badge version (e.g., "1", "2" for sub tier)
     pub version: String,
-    
+
     /// URL to badge image
     pub url: Option<String>,
-    
+
     /// Badge title/description
     pub title: Option<String>,
-    
+
     /// Badge source
     pub source: EmoteSource,
 }
@@ -288,7 +291,7 @@ pub struct Badge {
 pub struct TextPosition {
     /// Start index (inclusive)
     pub start: usize,
-    
+
     /// End index (exclusive)
     pub end: usize,
 }
@@ -299,15 +302,15 @@ pub struct EmoteMetadata {
     /// Whether this is a zero-width emote
     #[serde(default)]
     pub is_zero_width: bool,
-    
+
     /// Whether this is a modifier emote
     #[serde(default)]
     pub modifier: bool,
-    
+
     /// Emote set ID (for subscriber emotes)
     #[serde(default)]
     pub emote_set_id: Option<String>,
-    
+
     /// Subscription tier (for subscriber emotes)
     #[serde(default)]
     pub tier: Option<String>,
@@ -380,12 +383,15 @@ impl From<crate::transport::schema::GiftPayload> for GiftElement {
             crate::transport::schema::GiftType::Donation => GiftType::Donation,
             crate::transport::schema::GiftType::Other(s) => GiftType::Other(s),
         };
-        
+
         Self {
-            id: format!("gift_{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis()),
+            id: format!(
+                "gift_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+            ),
             from_user: payload.from_user,
             to_user: payload.to_user,
             gift_type,

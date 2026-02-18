@@ -1,13 +1,76 @@
-//! Overlay Native - Library exports for testing and binaries
+//! Overlay Native - Platform-agnostic overlay rendering system
+//!
+//! This library provides a modular, platform-agnostic overlay system for streaming.
+//! The architecture separates concerns into distinct layers:
+//!
+//! ## Architecture Overview
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────┐
+//! │                    EXTERNAL PLATFORM SERVICES                    │
+//! │   (Twitch Bridge, Kick Bridge, YouTube Bridge, Custom Clients)  │
+//! └────────────────────────────┬────────────────────────────────────┘
+//!                              │
+//!                              ▼
+//! ┌─────────────────────────────────────────────────────────────────┐
+//! │                      TRANSPORT LAYER                            │
+//! │              (IPC, WebSocket, HTTP API)                         │
+//! │   - Message validation via schema                               │
+//! │   - Protocol-agnostic interface                                 │
+//! └────────────────────────────┬────────────────────────────────────┘
+//!                              │
+//!                              ▼
+//! ┌─────────────────────────────────────────────────────────────────┐
+//! │                        CORE LAYER                               │
+//! │              (Platform-Agnostic Rendering)                      │
+//! │   - Message types and validation                                │
+//! │   - Core renderer with filtering                                │
+//! │   - Configuration management                                    │
+//! └────────────────────────────┬────────────────────────────────────┘
+//!                              │
+//!                              ▼
+//! ┌─────────────────────────────────────────────────────────────────┐
+//! │                       RENDER LAYER                              │
+//! │              (Platform-Specific Rendering)                      │
+//! │   - Linux: GTK/X11                                              │
+//! │   - Windows: Win32/GDI                                          │
+//! └─────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! ## Modules
+//!
+//! - [`core`] - Platform-agnostic rendering logic and message types
+//! - [`transport`] - IPC and WebSocket transport for receiving messages
+//! - [`render`] - Platform-specific window rendering
+//! - [`config`] - Configuration management
+//! - [`emotes`] - Emote parsing and caching
+//! - [`mapping`] - Data mapping between different formats
+//!
+//! ## Usage
+//!
+//! The overlay receives messages from external platform handlers via the
+//! transport layer. Messages are validated, normalized, and rendered
+//! using the platform-specific render layer.
 
+// Core modules - platform-agnostic
 pub mod config;
-pub mod connection;
 pub mod core;
-pub mod emotes;
-pub mod mapping;
-pub mod platforms;
+
+// Transport layer - receiving messages from external sources
 pub mod transport;
 
+// Rendering - platform-specific window management
+pub mod render;
+
+// Supporting modules
+pub mod emotes;
+pub mod mapping;
+
+// Legacy modules (kept for backward compatibility during migration)
+pub mod connection;
+pub mod platforms;
+
+// Platform-specific legacy modules
 #[cfg(unix)]
 pub mod window;
 
@@ -16,3 +79,8 @@ pub mod windows;
 
 #[cfg(target_os = "linux")]
 pub mod x11;
+
+// Re-exports for convenience
+pub use core::{ChatMessageElement, CoreRenderer, EmoteElement, GiftElement, OverlayElement};
+pub use render::{PlatformWindow, WindowConfig};
+pub use transport::{ChatMessagePayload, GiftPayload, IncomingMessage, TransportBridge};

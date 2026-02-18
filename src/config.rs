@@ -8,6 +8,7 @@ use std::time::Duration;
 pub struct Config {
     pub platforms: HashMap<String, PlatformConfig>,
     pub connections: Vec<ConnectionConfig>,
+    pub transport: TransportConfig,
     pub window: WindowConfig,
     pub display: DisplayConfig,
     pub emotes: EmoteConfig,
@@ -248,6 +249,42 @@ pub struct LoggingConfig {
     pub max_files: u32,
 }
 
+/// Transport layer configuration (IPC/WebSocket)
+/// This replaces direct platform connections with network-based transport
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TransportConfig {
+    /// Enable WebSocket server
+    pub websocket_enabled: bool,
+
+    /// WebSocket bind address (e.g., "127.0.0.1:9001")
+    pub websocket_bind: String,
+
+    /// Enable IPC server (Unix Domain Sockets on Linux/macOS, Named Pipes on Windows)
+    pub ipc_enabled: bool,
+
+    /// IPC socket path (Linux/macOS) or pipe name (Windows)
+    pub ipc_socket_path: String,
+
+    /// Maximum number of concurrent transport connections
+    pub max_connections: usize,
+
+    /// Message validation strictness
+    pub strict_validation: bool,
+}
+
+impl Default for TransportConfig {
+    fn default() -> Self {
+        Self {
+            websocket_enabled: true,
+            websocket_bind: "127.0.0.1:9001".to_string(),
+            ipc_enabled: true,
+            ipc_socket_path: "/tmp/overlay-native.sock".to_string(),
+            max_connections: 100,
+            strict_validation: true,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -386,17 +423,13 @@ impl Config {
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
-        // Validar que haya al menos una plataforma habilitada
-        if self.platforms.iter().all(|(_, config)| !config.enabled) {
-            return Err(ConfigError::ValidationError(
-                "At least one platform must be enabled".to_string(),
-            ));
-        }
+        // Validar que haya al menos una conexión habilitada O que el transporte esté habilitado
+        let has_enabled_connection = self.connections.iter().any(|conn| conn.enabled);
+        let transport_enabled = self.transport.websocket_enabled || self.transport.ipc_enabled;
 
-        // Validar que haya al menos una conexión habilitada
-        if self.connections.iter().all(|conn| !conn.enabled) {
+        if !has_enabled_connection && !transport_enabled {
             return Err(ConfigError::ValidationError(
-                "At least one connection must be enabled".to_string(),
+                "At least one connection must be enabled OR transport must be enabled".to_string(),
             ));
         }
 
@@ -429,88 +462,12 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let mut platforms = HashMap::new();
-
-        // Configuración por defecto para Twitch
-        platforms.insert(
-            "twitch".to_string(),
-            PlatformConfig {
-                platform_type: PlatformType::Twitch,
-                enabled: true,
-                credentials: Credentials {
-                    username: None,
-                    oauth_token: None,
-                    api_key: None,
-                    client_id: None,
-                    client_secret: None,
-                },
-                settings: PlatformSettings {
-                    max_reconnect_attempts: 5,
-                    reconnect_delay_ms: 5000,
-                    message_buffer_size: 1000,
-                    enable_emotes: true,
-                    enable_badges: true,
-                    custom_settings: HashMap::new(),
-                },
-            },
-        );
-
-        // Configuración por defecto para Kick
-        platforms.insert(
-            "kick".to_string(),
-            PlatformConfig {
-                platform_type: PlatformType::Kick,
-                enabled: true,
-                credentials: Credentials::default(),
-                settings: PlatformSettings {
-                    max_reconnect_attempts: 5,
-                    reconnect_delay_ms: 5000,
-                    message_buffer_size: 1000,
-                    enable_emotes: true,
-                    enable_badges: true,
-                    custom_settings: HashMap::new(),
-                },
-            },
-        );
-
+        // Configuración vacía por defecto - completamente agnóstica
+        // Las plataformas y conexiones se configuran externamente
         Self {
-            platforms,
-            connections: vec![
-                ConnectionConfig {
-                    id: "twitch_main".to_string(),
-                    platform: "twitch".to_string(),
-                    channel: "gohuntleo".to_string(),
-                    enabled: false, // Deshabilitado por defecto para evitar errores si no hay token
-                    filters: MessageFilters {
-                        min_message_length: None,
-                        max_message_length: Some(500),
-                        blocked_users: vec![],
-                        allowed_users: vec![],
-                        blocked_words: vec![],
-                        commands_only: false,
-                        subscribers_only: false,
-                        vip_only: false,
-                    },
-                    display_name: Some("Main Twitch Chat".to_string()),
-                },
-                ConnectionConfig {
-                    id: "kick_main".to_string(),
-                    platform: "kick".to_string(),
-                    channel: "spreen".to_string(),
-                    enabled: true, // Habilitado por defecto, Kick no requiere autenticación
-                    filters: MessageFilters {
-                        min_message_length: None,
-                        max_message_length: Some(500),
-                        blocked_users: vec![],
-                        allowed_users: vec![],
-                        blocked_words: vec![],
-                        commands_only: false,
-                        subscribers_only: false,
-                        vip_only: false,
-                    },
-                    display_name: Some("Kick Chat".to_string()),
-                },
-            ],
+            platforms: HashMap::new(),
+            connections: vec![],
+            transport: TransportConfig::default(),
             window: WindowConfig {
                 message_duration_seconds: 10,
                 max_windows: 100,

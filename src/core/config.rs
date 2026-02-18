@@ -11,13 +11,13 @@ use std::time::Duration;
 pub struct CoreConfig {
     /// Window/message display settings
     pub window: WindowSettings,
-    
+
     /// Animation settings
     pub animation: AnimationSettings,
-    
+
     /// Display preferences
     pub display: DisplaySettings,
-    
+
     /// Message processing settings
     pub processing: ProcessingSettings,
 }
@@ -38,16 +38,16 @@ impl Default for CoreConfig {
 pub struct WindowSettings {
     /// How long messages are displayed (in seconds)
     pub message_duration_seconds: u64,
-    
+
     /// Maximum number of active windows/overlays
     pub max_windows: usize,
-    
+
     /// Enable window animations
     pub animation_enabled: bool,
-    
+
     /// Fade in duration in milliseconds
     pub fade_in_duration_ms: u64,
-    
+
     /// Fade out duration in milliseconds  
     pub fade_out_duration_ms: u64,
 }
@@ -76,16 +76,16 @@ impl WindowSettings {
 pub struct AnimationSettings {
     /// Enable animations
     pub enabled: bool,
-    
+
     /// Animation speed multiplier (0.5 = half speed, 2.0 = double speed)
     pub speed_multiplier: f32,
-    
+
     /// Enable entrance animations
     pub entrance_enabled: bool,
-    
+
     /// Enable exit animations
     pub exit_enabled: bool,
-    
+
     /// Enable emote animations
     pub emote_animation: bool,
 }
@@ -107,31 +107,31 @@ impl Default for AnimationSettings {
 pub struct DisplaySettings {
     /// Font family to use
     pub font_family: String,
-    
+
     /// Base font size
     pub font_size: u32,
-    
+
     /// Background color (hex format)
     pub background_color: String,
-    
+
     /// Primary text color (hex format)
     pub text_color: String,
-    
+
     /// Username text color (hex format)
     pub username_color: String,
-    
+
     /// Border radius in pixels
     pub border_radius: u32,
-    
+
     /// Window opacity (0.0 - 1.0)
     pub opacity: f32,
-    
+
     /// Monitor margin in pixels
     pub monitor_margin: i32,
-    
+
     /// Window size in pixels
     pub window_size: i32,
-    
+
     /// Grid size for positioning
     pub grid_size: i32,
 }
@@ -158,16 +158,16 @@ impl Default for DisplaySettings {
 pub struct ProcessingSettings {
     /// Maximum message length to display
     pub max_message_length: usize,
-    
+
     /// Maximum emotes per message
     pub max_emotes_per_message: usize,
-    
+
     /// Maximum badges per message
     pub max_badges_per_message: usize,
-    
+
     /// Enable message deduplication
     pub deduplicate_messages: bool,
-    
+
     /// Deduplication window in milliseconds
     pub deduplication_window_ms: u64,
 }
@@ -190,25 +190,25 @@ impl Default for ProcessingSettings {
 pub struct MessageFilter {
     /// Minimum message length
     pub min_length: Option<usize>,
-    
+
     /// Maximum message length
     pub max_length: Option<usize>,
-    
+
     /// Blocked usernames
     pub blocked_users: Vec<String>,
-    
+
     /// Allowed usernames (if not empty, only these can send)
     pub allowed_users: Vec<String>,
-    
+
     /// Blocked words (partial match)
     pub blocked_words: Vec<String>,
-    
+
     /// Only allow commands (messages starting with ! or /)
     pub commands_only: bool,
-    
+
     /// Only allow subscribers
     pub subscribers_only: bool,
-    
+
     /// Only allow VIPs
     pub vip_only: bool,
 }
@@ -242,51 +242,63 @@ impl MessageFilter {
                 return false;
             }
         }
-        
+
         // Check blocked users
-        if self.blocked_users.iter().any(|u| u.eq_ignore_ascii_case(username)) {
+        if self
+            .blocked_users
+            .iter()
+            .any(|u| u.eq_ignore_ascii_case(username))
+        {
             return false;
         }
-        
+
         // Check allowed users
-        if !self.allowed_users.is_empty() && !self.allowed_users.iter().any(|u| u.eq_ignore_ascii_case(username)) {
+        if !self.allowed_users.is_empty()
+            && !self
+                .allowed_users
+                .iter()
+                .any(|u| u.eq_ignore_ascii_case(username))
+        {
             return false;
         }
-        
+
         // Check blocked words
         let content_lower = content.to_lowercase();
-        if self.blocked_words.iter().any(|w| content_lower.contains(&w.to_lowercase())) {
+        if self
+            .blocked_words
+            .iter()
+            .any(|w| content_lower.contains(&w.to_lowercase()))
+        {
             return false;
         }
-        
+
         // Check commands only
         if self.commands_only && !content.starts_with('!') && !content.starts_with('/') {
             return false;
         }
-        
+
         // Check subscriber-only
         if self.subscribers_only {
-            let has_sub = badges.iter().any(|b| 
-                b.id.contains("subscriber") || 
-                b.id.contains("subscription") ||
-                b.name.to_lowercase().contains("sub")
-            );
+            let has_sub = badges.iter().any(|b| {
+                b.id.contains("subscriber")
+                    || b.id.contains("subscription")
+                    || b.name.to_lowercase().contains("sub")
+            });
             if !has_sub {
                 return false;
             }
         }
-        
+
         // Check VIP-only
         if self.vip_only {
-            let has_vip = badges.iter().any(|b| 
-                b.id.contains("vip") ||
-                b.name.to_lowercase().contains("vip")
-            );
+            let has_vip = badges
+                .iter()
+                .any(|b| b.id.contains("vip") || b.name.to_lowercase().contains("vip"));
             if !has_vip {
                 return false;
             }
         }
-        
+
         true
     }
 }
