@@ -38,23 +38,23 @@ pub mod win32;
 use std::time::{Duration, Instant};
 
 /// Trait for platform-specific window rendering
-/// 
+///
 /// Note: This trait does not require `Send + Sync` because GTK windows
 /// are not thread-safe. Platform-specific implementations handle their
 /// own threading requirements.
 pub trait PlatformWindow {
     /// Get the window ID (for tracking)
     fn id(&self) -> &str;
-    
+
     /// Update the progress bar (0.0 - 1.0)
     fn set_progress(&mut self, progress: f64);
-    
+
     /// Check if the window is still valid/visible
     fn is_valid(&self) -> bool;
-    
+
     /// Close and destroy the window
     fn close(self);
-    
+
     /// Get the creation time
     fn created_at(&self) -> Instant;
 }

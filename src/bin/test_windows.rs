@@ -12,8 +12,6 @@
 
 #[cfg(unix)]
 use gdk::prelude::MonitorExt;
-#[cfg(unix)]
-use gdk::Rectangle;
 use overlay_native::config::{Config, DisplayConfig, WindowConfig};
 #[cfg(unix)]
 use overlay_native::window::{
@@ -23,8 +21,6 @@ use overlay_native::window::{
 use overlay_native::windows::WindowsWindow;
 use std::time::{Duration, Instant};
 use tokio::time;
-#[cfg(unix)]
-use twitch_irc::message::Emote;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -369,24 +365,6 @@ async fn test_test_message() -> Result<(), Box<dyn std::error::Error>> {
         "Test message too long"
     );
 
-    #[cfg(unix)]
-    {
-        // Test that test message can be used for window creation
-        let test_user = "TestUser";
-        let test_message = &config.window.test_message;
-        let test_emotes: Vec<Emote> = vec![];
-        let test_position = (100, 100);
-        let monitor_geometry = get_gdk_monitor().geometry();
-
-        println!("   ✅ Test parameters:");
-        println!("      - User: {}", test_user);
-        println!("      - Message: {}", test_message);
-        println!("      - Emotes: {}", test_emotes.len());
-        println!(
-            "      - Position: ({}, {})",
-            test_position.0, test_position.1
-        );
-    }
 
     // Test that the message is appropriate for display
     assert!(

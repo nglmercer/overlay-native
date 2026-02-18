@@ -6,7 +6,6 @@ use std::os::windows::ffi::OsStrExt;
 use std::ptr::null_mut;
 use std::sync::{Arc, Mutex, Once};
 use tokio::time::Instant;
-use twitch_irc::message::Emote;
 use winapi::shared::windef::{HBITMAP, HDC, HWND, RECT};
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::wingdi::*;
@@ -40,7 +39,7 @@ pub struct WindowsWindow {
     pub progress: f64,
     pub username: String,
     pub message: String,
-    pub emotes: Vec<twitch_irc::message::Emote>,
+    pub emotes: Vec<crate::core::EmoteElement>,
 }
 
 // Global cache for emote images

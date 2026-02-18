@@ -1,27 +1,36 @@
 #[cfg(windows)]
 use overlay_native::windows::WindowsWindow;
-use twitch_irc::message::Emote;
+use overlay_native::core::EmoteElement;
 
 #[cfg(windows)]
 fn main() {
     println!("🧪 Testing Windows emote rendering...");
 
-    // Create test emotes
+    // Create test emotes using core EmoteElement type
     let test_emotes = vec![
-        Emote {
+        EmoteElement {
             id: "25".to_string(),
-            code: "Kappa".to_string(),
-            char_range: 0..4,
+            name: "Kappa".to_string(),
+            platform: Some("twitch".to_string()),
+            source: overlay_native::core::EmoteSource::Platform("twitch".to_string()),
+            positions: vec![0..4],
+            image_url: None,
         },
-        Emote {
+        EmoteElement {
             id: "425618".to_string(),
-            code: "FeelsGoodMan".to_string(),
-            char_range: 5..16,
+            name: "FeelsGoodMan".to_string(),
+            platform: Some("twitch".to_string()),
+            source: overlay_native::core::EmoteSource::Platform("twitch".to_string()),
+            positions: vec![5..16],
+            image_url: None,
         },
-        Emote {
+        EmoteElement {
             id: "304355148".to_string(),
-            code: "PepeLaugh".to_string(),
-            char_range: 17..25,
+            name: "PepeLaugh".to_string(),
+            platform: Some("twitch".to_string()),
+            source: overlay_native::core::EmoteSource::Platform("twitch".to_string()),
+            positions: vec![17..25],
+            image_url: None,
         },
     ];
 

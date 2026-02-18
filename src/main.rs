@@ -150,10 +150,7 @@ impl AppState {
                     "✅ Connected to '{}' on {}",
                     connection.channel, connection.platform
                 ),
-                Err(e) => eprintln!(
-                    "❌ Failed to connect to '{}': {}",
-                    connection.channel, e
-                ),
+                Err(e) => eprintln!("❌ Failed to connect to '{}': {}", connection.channel, e),
             }
         }
 
@@ -331,21 +328,17 @@ async fn main() -> Result<()> {
 
                     #[cfg(windows)]
                     {
-                        let emotes: Vec<twitch_irc::message::Emote> = message.emotes
-                            .iter()
-                            .map(|e| twitch_irc::message::Emote {
-                                id: e.id.clone(),
-                                code: e.name.clone(),
-                                char_range: e.positions.first()
-                                    .map(|p| p.start..p.end)
-                                    .unwrap_or(0..0),
-                            })
-                            .collect();
+                        // Convert to core message type - emotes are already in core format
+                        let core_message = crate::core::ChatMessageElement::new(
+                            message.id,
+                            message.username,
+                            message.content,
+                        );
 
                         let _win = crate::windows::WindowsWindow::new(
                             &message.username,
                             &message.content,
-                            &emotes,
+                            &message.emotes,
                             pos,
                         );
                     }
