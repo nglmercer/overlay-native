@@ -8,6 +8,12 @@ use tokio::sync::mpsc;
 /// Type alias for platform errors to simplify trait bounds
 pub type PlatformError = Box<dyn std::error::Error + Send + Sync>;
 
+/// Type alias for a boxed streaming platform
+pub type BoxedStreamingPlatform = Box<dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError> + Send + Sync>;
+
+/// Type alias for a shared, mutex-protected platform
+pub type SharedPlatform = std::sync::Arc<tokio::sync::Mutex<BoxedStreamingPlatform>>;
+
 fn system_time_now() -> SystemTime {
     SystemTime::now()
 }
@@ -203,18 +209,7 @@ pub trait StreamingPlatform {
 pub struct PlatformManager {
     message_sender: mpsc::UnboundedSender<ChatMessage>,
     message_receiver: mpsc::UnboundedReceiver<ChatMessage>,
-    platforms: HashMap<
-        String,
-        std::sync::Arc<
-            tokio::sync::Mutex<
-                Box<
-                    dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError>
-                        + Send
-                        + Sync,
-                >,
-            >,
-        >,
-    >,
+    platforms: HashMap<String, SharedPlatform>,
     connections: HashMap<String, ConnectionInfo>,
 }
 
@@ -274,20 +269,7 @@ impl PlatformManager {
         );
     }
 
-    pub fn get_platform_mut(
-        &mut self,
-        platform_name: &str,
-    ) -> Option<
-        &mut std::sync::Arc<
-            tokio::sync::Mutex<
-                Box<
-                    dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError>
-                        + Send
-                        + Sync,
-                >,
-            >,
-        >,
-    > {
+    pub fn get_platform_mut(&mut self, platform_name: &str) -> Option<&mut SharedPlatform> {
         self.platforms.get_mut(platform_name)
     }
 
@@ -451,20 +433,7 @@ impl PlatformManager {
         self.platforms.keys().cloned().collect()
     }
 
-    pub fn get_platform(
-        &self,
-        platform_name: &str,
-    ) -> Option<
-        &std::sync::Arc<
-            tokio::sync::Mutex<
-                Box<
-                    dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError>
-                        + Send
-                        + Sync,
-                >,
-            >,
-        >,
-    > {
+    pub fn get_platform(&self, platform_name: &str) -> Option<&SharedPlatform> {
         self.platforms.get(platform_name)
     }
 

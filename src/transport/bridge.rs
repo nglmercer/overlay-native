@@ -60,7 +60,7 @@ impl TransportBridge {
     /// Process a WebSocket event and forward to renderer
     pub async fn handle_ws_event(&self, event: WsEvent) -> Result<(), BridgeError> {
         match event {
-            WsEvent::Message(msg) => self.handle_incoming_message(msg).await,
+            WsEvent::Message(msg) => self.handle_incoming_message(*msg).await,
             WsEvent::ClientConnected(addr) => {
                 println!("[BRIDGE] Client connected: {}", addr);
                 Ok(())

@@ -189,7 +189,7 @@ impl CoreRenderer {
 
         // Emit event
         if let Some(ref tx) = self.event_tx {
-            let _ = tx.send(RenderEvent::ElementQueued(element));
+            let _ = tx.send(RenderEvent::ElementQueued(Box::new(element)));
         }
 
         // Schedule removal after duration

@@ -20,7 +20,7 @@ static CONNECTED_CLIENTS: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone)]
 pub enum WsEvent {
     /// Un mensaje de chat llegó de un cliente
-    Message(IncomingMessage),
+    Message(Box<IncomingMessage>),
 
     /// Un cliente se conectó
     ClientConnected(SocketAddr),
@@ -200,7 +200,7 @@ async fn handle_text_message(
             }
 
             // Enviar al sistema principal
-            if let Err(e) = event_tx.send(WsEvent::Message(msg)) {
+            if let Err(e) = event_tx.send(WsEvent::Message(Box::new(msg))) {
                 eprintln!("[WS] Error reenviando mensaje al sistema: {}", e);
             }
         }
