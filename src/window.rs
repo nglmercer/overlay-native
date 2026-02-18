@@ -1,8 +1,8 @@
 use std::fmt;
 
+use crate::connection::Emote;
 use gdk::Monitor;
 use tokio::time::Instant;
-use twitch_irc::message::Emote;
 
 use glib::{object_subclass, wrapper};
 use glib_macros::Properties;
@@ -92,11 +92,14 @@ pub struct SpawnedWindow {
     pub created: Instant,
 }
 
-pub fn init_window(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> (Option<WindowGeometry>, Window) {
+pub fn init_window(
+    pos: (i32, i32),
+    monitor_geometry: gdk::Rectangle,
+) -> (Option<WindowGeometry>, Window) {
     #[cfg(target_os = "linux")]
     {
         crate::x11::a(pos, monitor_geometry)
-    } 
+    }
     #[cfg(not(target_os = "linux"))]
     {
         (None, Window::new(gtk::WindowType::Toplevel, pos.0, pos.1))
@@ -122,19 +125,22 @@ pub async fn spawn_window(
 
         let mut start = 0;
         for emote in emotes {
-            let plain = start..emote.char_range.start;
-            if !plain.is_empty() {
-                let plain_txt = &message[plain];
-                let label = gtk::Label::new(Some(plain_txt));
-                messagebox.add(&label);
+            if let Some(pos) = emote.positions.first() {
+                let char_range = pos.start..pos.end;
+                let plain = start..pos.start;
+                if !plain.is_empty() {
+                    let plain_txt = &message[plain];
+                    let label = gtk::Label::new(Some(plain_txt));
+                    messagebox.add(&label);
+                }
+
+                start = pos.end;
+
+                let emote_id = &emote.id;
+                let img = load_emote(emote_id).await;
+
+                messagebox.add(&img);
             }
-
-            start = emote.char_range.end;
-
-            let emote_id = &emote.id;
-            let img = load_emote(emote_id).await;
-
-            messagebox.add(&img);
         }
 
         let plain = start..message.len();

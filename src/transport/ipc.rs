@@ -60,9 +60,15 @@ impl IpcServer {
             )
         })?;
 
-        println!("[IPC] 🔌 Unix socket escuchando en: {}", self.config.socket_path);
+        println!(
+            "[IPC] 🔌 Unix socket escuchando en: {}",
+            self.config.socket_path
+        );
         println!("[IPC] 📋 Protocolo: JSON por línea (newline-delimited JSON)");
-        println!("[IPC] 💡 Envía: echo '{{\"type\":\"ping\"}}' | nc -U {}", self.config.socket_path);
+        println!(
+            "[IPC] 💡 Envía: echo '{{\"type\":\"ping\"}}' | nc -U {}",
+            self.config.socket_path
+        );
 
         let event_tx = self.event_tx;
 
@@ -149,7 +155,10 @@ impl IpcServer {
         use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
         use tokio::net::windows::named_pipe::ServerOptions;
 
-        println!("[IPC] 🔌 Named Pipe escuchando en: {}", self.config.socket_path);
+        println!(
+            "[IPC] 🔌 Named Pipe escuchando en: {}",
+            self.config.socket_path
+        );
         println!("[IPC] 📋 Protocolo: JSON por línea (newline-delimited JSON)");
 
         let event_tx = self.event_tx;
@@ -162,9 +171,10 @@ impl IpcServer {
                 .map_err(|e| anyhow::anyhow!("Error creando Named Pipe: {}", e))?;
 
             // Esperar conexión
-            server.connect().await.map_err(|e| {
-                anyhow::anyhow!("Error esperando conexión en Named Pipe: {}", e)
-            })?;
+            server
+                .connect()
+                .await
+                .map_err(|e| anyhow::anyhow!("Error esperando conexión en Named Pipe: {}", e))?;
 
             let tx = event_tx.clone();
             let pipe_name_clone = pipe_name.clone();

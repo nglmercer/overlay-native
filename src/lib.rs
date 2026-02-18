@@ -2,6 +2,7 @@
 
 pub mod config;
 pub mod connection;
+pub mod core;
 pub mod emotes;
 pub mod mapping;
 pub mod platforms;

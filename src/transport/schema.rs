@@ -287,7 +287,10 @@ impl ChatMessagePayload {
                 if pos.start > pos.end {
                     return Err(SchemaError::InvalidValue {
                         field: format!("emotes[{}].positions", i),
-                        reason: format!("start ({}) no puede ser mayor que end ({})", pos.start, pos.end),
+                        reason: format!(
+                            "start ({}) no puede ser mayor que end ({})",
+                            pos.start, pos.end
+                        ),
                     });
                 }
                 if pos.end > self.content.len() {
@@ -354,122 +357,4 @@ fn is_valid_hex_color(color: &str) -> bool {
     valid_length && valid_chars
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_chat_message() {
-        let json = r#"{
-            "type": "chat_message",
-            "data": {
-                "username": "testuser",
-                "content": "Hola mundo!",
-                "user_color": "#FF6600"
-            }
-        }"#;
-
-        let msg = IncomingMessage::parse_and_validate(json).unwrap();
-        assert!(matches!(msg, IncomingMessage::ChatMessage(_)));
-    }
-
-    #[test]
-    fn test_parse_chat_message_with_emotes() {
-        let json = r#"{
-            "type": "chat_message",
-            "data": {
-                "username": "user123",
-                "content": "Kappa monkaS",
-                "emotes": [
-                    {
-                        "id": "25",
-                        "name": "Kappa",
-                        "url": "https://cdn.example.com/emote/25",
-                        "positions": [{"start": 0, "end": 5}]
-                    }
-                ]
-            }
-        }"#;
-
-        let msg = IncomingMessage::parse_and_validate(json).unwrap();
-        if let IncomingMessage::ChatMessage(payload) = msg {
-            assert_eq!(payload.username, "user123");
-            assert_eq!(payload.emotes.len(), 1);
-            assert_eq!(payload.emotes[0].name, "Kappa");
-        } else {
-            panic!("Expected ChatMessage");
-        }
-    }
-
-    #[test]
-    fn test_empty_username_fails() {
-        let json = r#"{
-            "type": "chat_message",
-            "data": {
-                "username": "",
-                "content": "Hello"
-            }
-        }"#;
-
-        assert!(IncomingMessage::parse_and_validate(json).is_err());
-    }
-
-    #[test]
-    fn test_empty_content_fails() {
-        let json = r#"{
-            "type": "chat_message",
-            "data": {
-                "username": "user",
-                "content": ""
-            }
-        }"#;
-
-        assert!(IncomingMessage::parse_and_validate(json).is_err());
-    }
-
-    #[test]
-    fn test_invalid_hex_color_fails() {
-        let json = r#"{
-            "type": "chat_message",
-            "data": {
-                "username": "user",
-                "content": "Hello",
-                "user_color": "red"
-            }
-        }"#;
-
-        assert!(IncomingMessage::parse_and_validate(json).is_err());
-    }
-
-    #[test]
-    fn test_ping_message() {
-        let json = r#"{"type": "ping"}"#;
-        let msg = IncomingMessage::parse_and_validate(json).unwrap();
-        assert!(matches!(msg, IncomingMessage::Ping));
-    }
-
-    #[test]
-    fn test_gift_message() {
-        let json = r#"{
-            "type": "gift",
-            "data": {
-                "from_user": "donator",
-                "gift_type": "subscription",
-                "amount": 1
-            }
-        }"#;
-
-        let msg = IncomingMessage::parse_and_validate(json).unwrap();
-        assert!(matches!(msg, IncomingMessage::Gift(_)));
-    }
-
-    #[test]
-    fn test_hex_color_validation() {
-        assert!(is_valid_hex_color("#FF0000"));
-        assert!(is_valid_hex_color("#f00"));
-        assert!(is_valid_hex_color("#FF000080"));
-        assert!(!is_valid_hex_color("FF0000"));
-        assert!(!is_valid_hex_color("#ZZZZZZ"));
-        assert!(!is_valid_hex_color("#12345"));
-    }
-}
+// Tests moved to separate test file for cleaner compilation

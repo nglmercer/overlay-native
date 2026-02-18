@@ -33,21 +33,33 @@ impl Default for PlatformConfig {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone)]
 pub enum PlatformType {
-    #[serde(rename = "twitch")]
     Twitch,
-    #[serde(rename = "youtube")]
     YouTube,
-    #[serde(rename = "kick")]
     Kick,
-    #[serde(rename = "trovo")]
     Trovo,
-    #[serde(rename = "facebook")]
     Facebook,
-    #[serde(other)]
     Custom(String),
+}
+
+impl<'de> serde::Deserialize<'de> for PlatformType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(PlatformType::from(s))
+    }
+}
+
+impl serde::Serialize for PlatformType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
 }
 
 impl PlatformType {
@@ -267,20 +279,33 @@ impl Config {
         // Intentar cargar configuración externa
         match Self::load_from_file(&external_path) {
             Ok(config) => {
-                println!("[CONFIG] ✅ External config loaded from: {:?}", external_path.as_ref());
+                println!(
+                    "[CONFIG] ✅ External config loaded from: {:?}",
+                    external_path.as_ref()
+                );
                 Self::log_loaded_config(&config);
                 Ok(config)
-            },
+            }
             Err(e) => {
-                println!("[CONFIG] ⚠️ Could not load external config from {:?}: {}", external_path.as_ref(), e);
+                println!(
+                    "[CONFIG] ⚠️ Could not load external config from {:?}: {}",
+                    external_path.as_ref(),
+                    e
+                );
                 println!("[CONFIG] 🔄 Creating default config file...");
 
                 // Si el archivo externo no existe o hay error, crearlo con valores por defecto
                 let default_config = Self::default();
                 if let Err(e) = default_config.save_to_file(&external_path) {
-                    eprintln!("[CONFIG] ❌ Warning: Could not create external config file: {}", e);
+                    eprintln!(
+                        "[CONFIG] ❌ Warning: Could not create external config file: {}",
+                        e
+                    );
                 } else {
-                    println!("[CONFIG] ✅ Default config saved to: {:?}", external_path.as_ref());
+                    println!(
+                        "[CONFIG] ✅ Default config saved to: {:?}",
+                        external_path.as_ref()
+                    );
                 }
 
                 Self::log_loaded_config(&default_config);
@@ -326,25 +351,37 @@ impl Config {
     /// Log the loaded configuration for debugging purposes
     fn log_loaded_config(config: &Config) {
         println!("[CONFIG] 📊 Configuration Summary:");
-        println!("[CONFIG]   Platforms: {} ({} enabled)",
-                 config.platforms.len(),
-                 config.get_enabled_platforms().len());
-        println!("[CONFIG]   Connections: {} ({} enabled)",
-                 config.connections.len(),
-                 config.get_enabled_connections().len());
+        println!(
+            "[CONFIG]   Platforms: {} ({} enabled)",
+            config.platforms.len(),
+            config.get_enabled_platforms().len()
+        );
+        println!(
+            "[CONFIG]   Connections: {} ({} enabled)",
+            config.connections.len(),
+            config.get_enabled_connections().len()
+        );
 
         for platform_name in config.get_enabled_platforms() {
             if let Some(platform_config) = config.get_platform_config(platform_name) {
-                println!("[CONFIG]     - {}: enabled={}, credentials={}",
-                         platform_name,
-                         platform_config.enabled,
-                         if platform_config.credentials.username.is_some() { "set" } else { "none" });
+                println!(
+                    "[CONFIG]     - {}: enabled={}, credentials={}",
+                    platform_name,
+                    platform_config.enabled,
+                    if platform_config.credentials.username.is_some() {
+                        "set"
+                    } else {
+                        "none"
+                    }
+                );
             }
         }
 
         for conn in config.get_enabled_connections() {
-            println!("[CONFIG]     - Connection '{}' -> {} @ channel '{}'",
-                     conn.id, conn.platform, conn.channel);
+            println!(
+                "[CONFIG]     - Connection '{}' -> {} @ channel '{}'",
+                conn.id, conn.platform, conn.channel
+            );
         }
     }
 

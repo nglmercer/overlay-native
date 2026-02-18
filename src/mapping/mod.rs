@@ -1,10 +1,8 @@
 pub mod data_mapper;
 pub mod message_transformer;
-pub mod platform_adapter;
 
 pub use data_mapper::*;
 pub use message_transformer::*;
-pub use platform_adapter::*;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

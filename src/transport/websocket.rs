@@ -71,11 +71,7 @@ impl WebSocketServer {
     /// Inicia el servidor en un task de Tokio
     pub async fn start(self) -> anyhow::Result<()> {
         let listener = TcpListener::bind(self.bind_addr).await.map_err(|e| {
-            anyhow::anyhow!(
-                "No se pudo iniciar WebSocket en {}: {}",
-                self.bind_addr,
-                e
-            )
+            anyhow::anyhow!("No se pudo iniciar WebSocket en {}: {}", self.bind_addr, e)
         })?;
 
         println!("[WS] 🌐 WebSocket escuchando en ws://{}", self.bind_addr);
@@ -93,7 +89,9 @@ impl WebSocketServer {
                     let bcast_rx = broadcast_tx.subscribe();
 
                     tokio::spawn(async move {
-                        if let Err(e) = handle_connection(stream, addr, tx, bcast_tx, bcast_rx).await {
+                        if let Err(e) =
+                            handle_connection(stream, addr, tx, bcast_tx, bcast_rx).await
+                        {
                             eprintln!("[WS] Error con cliente {}: {}", addr, e);
                         }
                     });
@@ -114,9 +112,9 @@ async fn handle_connection(
     broadcast_tx: broadcast::Sender<String>,
     mut broadcast_rx: broadcast::Receiver<String>,
 ) -> anyhow::Result<()> {
-    let ws_stream = accept_async(stream).await.map_err(|e| {
-        anyhow::anyhow!("Error en handshake WebSocket con {}: {}", addr, e)
-    })?;
+    let ws_stream = accept_async(stream)
+        .await
+        .map_err(|e| anyhow::anyhow!("Error en handshake WebSocket con {}: {}", addr, e))?;
 
     CONNECTED_CLIENTS.fetch_add(1, Ordering::Relaxed);
     println!(

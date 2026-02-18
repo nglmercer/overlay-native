@@ -1,5 +1,5 @@
 //! Platform-agnostic core module
-//! 
+//!
 //! This module provides the base infrastructure for connecting to streaming platforms
 //! via IPC or WebSocket. The platform logic is now handled externally through
 //! transport connections, making this core completely agnostic.
@@ -37,10 +37,10 @@ pub enum PlatformError {
 pub enum PlatformWrapperError {
     #[error("Generic platform error: {0}")]
     Generic(String),
-    
+
     #[error("Transport error: {0}")]
     Transport(String),
-    
+
     #[error("Configuration error: {0}")]
     Config(String),
 }

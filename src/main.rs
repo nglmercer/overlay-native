@@ -219,11 +219,19 @@ impl AppState {
 
         // Mostrar información de configuración cargada
         println!("[CONFIG] ✅ Configuration loaded successfully");
-        println!("[CONFIG] Enabled platforms: {:?}", config.get_enabled_platforms());
-        println!("[CONFIG] Enabled connections: {}", config.get_enabled_connections().len());
+        println!(
+            "[CONFIG] Enabled platforms: {:?}",
+            config.get_enabled_platforms()
+        );
+        println!(
+            "[CONFIG] Enabled connections: {}",
+            config.get_enabled_connections().len()
+        );
         for conn in config.get_enabled_connections() {
-            println!("[CONFIG]   - {} ({} platform, channel: '{}')",
-                     conn.id, conn.platform, conn.channel);
+            println!(
+                "[CONFIG]   - {} ({} platform, channel: '{}')",
+                conn.id, conn.platform, conn.channel
+            );
         }
 
         // Crear sistemas
@@ -249,19 +257,25 @@ impl AppState {
     async fn initialize_transport(&self) -> Result<()> {
         // Initialize transport layer for receiving messages from external platform handlers
         // The overlay now receives messages via IPC or WebSocket from separate platform services
-        
+
         println!("📡 Initializing transport layer...");
         println!("   The overlay is now platform-agnostic.");
         println!("   Connect platform handlers via IPC or WebSocket to send messages.");
-        
+
         // Transport connections are configured in config.connections
         let enabled_connections = self.config.get_enabled_connections();
-        println!("[TRANSPORT] Enabled {} connection(s)", enabled_connections.len());
-        
+        println!(
+            "[TRANSPORT] Enabled {} connection(s)",
+            enabled_connections.len()
+        );
+
         for conn in enabled_connections {
-            println!("   - {} ({}: {})", conn.id, conn.transport_type, conn.address);
+            println!(
+                "   - {} ({} platform, channel: '{}')",
+                conn.id, conn.platform, conn.channel
+            );
         }
-        
+
         Ok(())
     }
 
@@ -269,8 +283,9 @@ impl AppState {
         let mut manager = self.platform_manager.write().await;
         let enabled_connections = self.config.get_enabled_connections();
 
-        println!("[CONNECTIONS] Starting connections. Found {} enabled connections",
-                 enabled_connections.len()
+        println!(
+            "[CONNECTIONS] Starting connections. Found {} enabled connections",
+            enabled_connections.len()
         );
 
         for connection in enabled_connections {
@@ -289,14 +304,20 @@ impl AppState {
             });
 
             // Iniciar conexión
-            println!("[CONNECTIONS] 🚀 Attempting to start connection: {}", connection.id);
+            println!(
+                "[CONNECTIONS] 🚀 Attempting to start connection: {}",
+                connection.id
+            );
             match manager.start_connection(&connection.id).await {
                 Ok(_) => {
                     println!(
                         "✅ Connected to '{}' on {} ({})",
                         connection.channel, connection.platform, connection.id
                     );
-                    println!("[CONNECTIONS] ✅ Successfully started connection: {}", connection.id);
+                    println!(
+                        "[CONNECTIONS] ✅ Successfully started connection: {}",
+                        connection.id
+                    );
                 }
                 Err(e) => {
                     eprintln!(

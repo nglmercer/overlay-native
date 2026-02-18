@@ -1,4 +1,3 @@
-
 use anyhow::{Context, Result};
 use gdk::prelude::MonitorExt;
 use gdk::Monitor;
@@ -8,7 +7,9 @@ use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConnectionExt, PropMode};
 use x11rb::rust_connection::{DefaultStream, RustConnection};
 
-use crate::window::{Window, get_gdk_monitor, WindowGeometry, AnchorPoint, AnchorAlignment, Coords};
+use crate::window::{
+    get_gdk_monitor, AnchorAlignment, AnchorPoint, Coords, Window, WindowGeometry,
+};
 
 x11rb::atom_manager! {
     pub AtomCollection: AtomCollectionCookie {
@@ -172,7 +173,10 @@ pub enum Side {
     Top,
 }
 
-pub fn a(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> (Option<WindowGeometry>, crate::window::Window) {
+pub fn a(
+    pos: (i32, i32),
+    monitor_geometry: gdk::Rectangle,
+) -> (Option<WindowGeometry>, crate::window::Window) {
     let geometry = WindowGeometry {
         anchor_point: AnchorPoint {
             x: AnchorAlignment::START,
@@ -216,7 +220,7 @@ pub fn a(pos: (i32, i32), monitor_geometry: gdk::Rectangle) -> (Option<WindowGeo
     // run on_screen_changed to set the visual correctly initially.
     on_screen_changed(&w, None);
     w.connect_screen_changed(on_screen_changed);
-    ( Some(geometry), w )
+    (Some(geometry), w)
 }
 
 pub fn b(w: crate::window::Window, monitor_geometry: gdk::Rectangle, geometry: WindowGeometry) {
