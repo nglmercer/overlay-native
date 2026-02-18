@@ -1,99 +1,12 @@
-pub mod base;
-pub mod kick;
-pub mod twitch;
-pub mod youtube;
+//! Platform-agnostic core module
+//! 
+//! This module provides the base infrastructure for connecting to streaming platforms
+//! via IPC or WebSocket. The platform logic is now handled externally through
+//! transport connections, making this core completely agnostic.
 
-pub use base::*;
-pub use kick::*;
-pub use twitch::*;
-pub use youtube::*;
-
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-/// Fábrica de plataformas
-pub struct PlatformFactory {
-    platforms: HashMap<String, Arc<dyn PlatformCreator + Send + Sync>>,
-}
-
-impl PlatformFactory {
-    pub fn new() -> Self {
-        let mut factory = Self {
-            platforms: HashMap::new(),
-        };
-
-        // Registrar plataformas por defecto
-        factory.register_platform("twitch".to_string(), Arc::new(TwitchCreator));
-        // factory.register_platform("youtube".to_string(), Arc::new(YouTubeCreator));
-        factory.register_platform("kick".to_string(), Arc::new(KickCreator));
-
-        factory
-    }
-
-    pub fn register_platform(&mut self, name: String, creator: Arc<dyn PlatformCreator>) {
-        self.platforms.insert(name, creator);
-    }
-
-    /// Crea una instancia de plataforma
-    pub async fn create_platform(
-        &self,
-        platform_type: &str,
-        config: crate::config::PlatformConfig,
-    ) -> Result<
-        Box<
-            dyn crate::connection::StreamingPlatform<Error = PlatformWrapperError>
-                + Send
-                + Sync
-                + 'static,
-        >,
-        PlatformError,
-    > {
-        let creator = self
-            .platforms
-            .get(platform_type)
-            .ok_or_else(|| PlatformError::UnsupportedPlatform(platform_type.to_string()))?;
-
-        creator.create(config).await
-    }
-
-    pub fn list_supported_platforms(&self) -> Vec<String> {
-        self.platforms.keys().cloned().collect()
-    }
-}
-
-impl Default for PlatformFactory {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Trait para crear instancias de plataformas
-#[async_trait]
-pub trait PlatformCreator: Send + Sync {
-    async fn create(
-        &self,
-        config: crate::config::PlatformConfig,
-    ) -> Result<
-        Box<
-            dyn crate::connection::StreamingPlatform<Error = PlatformWrapperError>
-                + Send
-                + Sync
-                + 'static,
-        >,
-        PlatformError,
-    >;
-
-    fn platform_name(&self) -> &str;
-
-    fn required_credentials(&self) -> Vec<&'static str>;
-
-    async fn validate_credentials(
-        &self,
-        credentials: &crate::config::Credentials,
-    ) -> Result<bool, PlatformError>;
-}
 
 /// Errores de plataforma
 #[derive(Debug, thiserror::Error)]
@@ -115,6 +28,21 @@ pub enum PlatformError {
 
     #[error("Error de parsing: {0}")]
     ParseError(String),
+}
+
+/// Concrete error type for platform wrappers
+/// This is kept for backward compatibility but platforms should now
+/// communicate via IPC/WebSocket transport layer
+#[derive(Debug, thiserror::Error)]
+pub enum PlatformWrapperError {
+    #[error("Generic platform error: {0}")]
+    Generic(String),
+    
+    #[error("Transport error: {0}")]
+    Transport(String),
+    
+    #[error("Configuration error: {0}")]
+    Config(String),
 }
 
 /// Gestor de credenciales seguro
@@ -154,20 +82,6 @@ impl CredentialManager {
         creds.keys().cloned().collect()
     }
 }
-
-/// Concrete error type for platform wrappers
-#[derive(Debug, thiserror::Error)]
-pub enum PlatformWrapperError {
-    #[error("Twitch error: {0}")]
-    Twitch(#[from] crate::platforms::twitch::TwitchError),
-    #[error("Kick error: {0}")]
-    Kick(#[from] crate::platforms::kick::KickError),
-    #[error("Generic platform error: {0}")]
-    Generic(String),
-}
-
-// thiserror already implements std::error::Error, Send, and Sync for PlatformWrapperError
-// and the blanket From implementation is already provided by the standard library
 
 impl Default for CredentialManager {
     fn default() -> Self {

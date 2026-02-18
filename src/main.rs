@@ -3,6 +3,7 @@ mod connection;
 mod emotes;
 mod mapping;
 mod platforms;
+mod transport;
 
 #[cfg(unix)]
 mod window;
@@ -27,7 +28,7 @@ use crate::config::Config;
 use crate::connection::{ConnectionInfo, PlatformManager};
 use crate::emotes::EmoteSystem;
 use crate::mapping::MappingSystem;
-use crate::platforms::{CredentialManager, PlatformFactory};
+use crate::platforms::CredentialManager;
 
 use anyhow::Result;
 use tokio::sync::broadcast;
@@ -202,7 +203,6 @@ struct AppState {
     platform_manager: Arc<RwLock<PlatformManager>>,
     emote_system: Arc<RwLock<EmoteSystem>>,
     mapping_system: Arc<RwLock<MappingSystem>>,
-    platform_factory: Arc<PlatformFactory>,
     credential_manager: Arc<CredentialManager>,
     event_emitter: Arc<EventEmitter>,
     window_tracker: Arc<WindowTracker>,
@@ -230,7 +230,6 @@ impl AppState {
         let platform_manager = Arc::new(RwLock::new(PlatformManager::new()));
         let emote_system = Arc::new(RwLock::new(EmoteSystem::new(config.emotes.clone())));
         let mapping_system = Arc::new(RwLock::new(MappingSystem::default()));
-        let platform_factory = Arc::new(PlatformFactory::new());
         let credential_manager = Arc::new(CredentialManager::new());
 
         let event_emitter = Arc::new(EventEmitter::new());
@@ -241,44 +240,28 @@ impl AppState {
             platform_manager,
             emote_system,
             mapping_system,
-            platform_factory,
             credential_manager,
             event_emitter,
             window_tracker,
         })
     }
 
-    async fn initialize_platforms(&self) -> Result<()> {
-        let mut manager = self.platform_manager.write().await;
-        let enabled_platforms = self.config.get_enabled_platforms();
-        eprintln!("[DEBUG] Enabled platforms: {:?}", enabled_platforms);
-
-        for platform_name in enabled_platforms {
-            if let Some(platform_config) = self.config.get_platform_config(platform_name) {
-                // Crear instancia de la plataforma
-                let platform = self
-                    .platform_factory
-                    .create_platform(
-                        &platform_config.platform_type.to_string(),
-                        platform_config.clone(),
-                    )
-                    .await?;
-
-                // Registrar plataforma en el manager
-                manager.register_platform(platform_name.to_string(), platform);
-
-                // Guardar credenciales
-                self.credential_manager
-                    .store_credentials(
-                        platform_name.to_string(),
-                        platform_config.credentials.clone(),
-                    )
-                    .await;
-
-                println!("✅ Platform {} initialized", platform_name);
-            }
+    async fn initialize_transport(&self) -> Result<()> {
+        // Initialize transport layer for receiving messages from external platform handlers
+        // The overlay now receives messages via IPC or WebSocket from separate platform services
+        
+        println!("📡 Initializing transport layer...");
+        println!("   The overlay is now platform-agnostic.");
+        println!("   Connect platform handlers via IPC or WebSocket to send messages.");
+        
+        // Transport connections are configured in config.connections
+        let enabled_connections = self.config.get_enabled_connections();
+        println!("[TRANSPORT] Enabled {} connection(s)", enabled_connections.len());
+        
+        for conn in enabled_connections {
+            println!("   - {} ({}: {})", conn.id, conn.transport_type, conn.address);
         }
-
+        
         Ok(())
     }
 
@@ -449,7 +432,6 @@ impl Clone for AppState {
             platform_manager: self.platform_manager.clone(),
             emote_system: self.emote_system.clone(),
             mapping_system: self.mapping_system.clone(),
-            platform_factory: self.platform_factory.clone(),
             credential_manager: self.credential_manager.clone(),
             event_emitter: self.event_emitter.clone(),
             window_tracker: self.window_tracker.clone(),
@@ -531,8 +513,8 @@ async fn main() -> Result<()> {
     let state = AppState::new().await?;
     eprintln!("[DEBUG] AppState created successfully");
 
-    // Inicializar plataformas
-    state.initialize_platforms().await?;
+    // Inicializar transporte
+    state.initialize_transport().await?;
 
     // Precargar emotes
     state.preload_emotes().await?;

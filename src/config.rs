@@ -36,22 +36,49 @@ impl Default for PlatformConfig {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum PlatformType {
+    #[serde(rename = "twitch")]
     Twitch,
+    #[serde(rename = "youtube")]
     YouTube,
+    #[serde(rename = "kick")]
     Kick,
+    #[serde(rename = "trovo")]
     Trovo,
+    #[serde(rename = "facebook")]
     Facebook,
+    #[serde(other)]
+    Custom(String),
+}
+
+impl PlatformType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            PlatformType::Twitch => "twitch",
+            PlatformType::YouTube => "youtube",
+            PlatformType::Kick => "kick",
+            PlatformType::Trovo => "trovo",
+            PlatformType::Facebook => "facebook",
+            PlatformType::Custom(s) => s.as_str(),
+        }
+    }
+}
+
+impl From<String> for PlatformType {
+    fn from(s: String) -> Self {
+        match s.to_lowercase().as_str() {
+            "twitch" => PlatformType::Twitch,
+            "youtube" => PlatformType::YouTube,
+            "kick" => PlatformType::Kick,
+            "trovo" => PlatformType::Trovo,
+            "facebook" => PlatformType::Facebook,
+            other => PlatformType::Custom(other.to_string()),
+        }
+    }
 }
 
 impl std::fmt::Display for PlatformType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PlatformType::Twitch => write!(f, "twitch"),
-            PlatformType::YouTube => write!(f, "youtube"),
-            PlatformType::Kick => write!(f, "kick"),
-            PlatformType::Trovo => write!(f, "trovo"),
-            PlatformType::Facebook => write!(f, "facebook"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 

@@ -5,6 +5,7 @@ pub mod connection;
 pub mod emotes;
 pub mod mapping;
 pub mod platforms;
+pub mod transport;
 
 #[cfg(unix)]
 pub mod window;
