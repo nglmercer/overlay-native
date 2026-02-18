@@ -1,10 +1,9 @@
-use crate::connection::{Badge, ChatMessage, Emote, EmoteSource};
+use crate::connection::{Badge, Emote, EmoteSource};
 use crate::mapping::{
     MappedMessage, MappedMessageType, MappedMetadata, StandardizedMessage, UserLevel,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::SystemTime;
 
 /// Data mapper que convierte datos entre diferentes formatos de plataforma
 pub struct DataMapper {
@@ -58,9 +57,9 @@ impl DataMapper {
         self.emote_source_mappings
             .insert("twitch".to_string(), EmoteSource::Twitch);
         self.emote_source_mappings
-            .insert("bttv".to_string(), EmoteSource::BTTV);
+            .insert("bttv".to_string(), EmoteSource::Bttv);
         self.emote_source_mappings
-            .insert("ffz".to_string(), EmoteSource::FFZ);
+            .insert("ffz".to_string(), EmoteSource::Ffz);
         self.emote_source_mappings
             .insert("7tv".to_string(), EmoteSource::SevenTV);
         self.emote_source_mappings
@@ -221,7 +220,7 @@ impl DataMapper {
     fn map_emotes(
         &self,
         emotes: Vec<Emote>,
-        platform: &str,
+        _platform: &str,
     ) -> Result<Vec<Emote>, crate::mapping::MappingError> {
         let mut mapped_emotes = Vec::new();
 
@@ -247,7 +246,7 @@ impl DataMapper {
     fn map_badges(
         &self,
         badges: Vec<Badge>,
-        platform: &str,
+        _platform: &str,
     ) -> Result<Vec<Badge>, crate::mapping::MappingError> {
         let mut mapped_badges = Vec::new();
 

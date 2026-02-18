@@ -1,6 +1,5 @@
-use crate::mapping::{MappedMessage, MappingConfig, MappingError, StandardizedMessage};
+use crate::mapping::{MappingConfig, MappingError, StandardizedMessage};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Transformer que aplica transformaciones a mensajes estandarizados
@@ -79,7 +78,7 @@ impl MessageTransformer {
     /// Convierte timestamps a formato UTC
     fn convert_timestamp(
         &self,
-        mut message: StandardizedMessage,
+        message: StandardizedMessage,
     ) -> Result<StandardizedMessage, MappingError> {
         // Asumimos que el timestamp ya está en UTC, pero podríamos hacer conversiones
         Ok(message)

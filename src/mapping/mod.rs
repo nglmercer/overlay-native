@@ -240,4 +240,3 @@ pub struct StandardizedMessage {
     pub message_type: MappedMessageType,
     pub raw_data: serde_json::Value,
 }
-

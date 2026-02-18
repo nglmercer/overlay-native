@@ -125,12 +125,13 @@ pub enum MessageType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EmoteSource {
     Twitch,
     TwitchGlobal,
     TwitchSubscriber,
-    BTTV,
-    FFZ,
+    Bttv,
+    Ffz,
     SevenTV,
     YouTube,
     YouTubeCustom,
@@ -146,8 +147,8 @@ impl std::fmt::Display for EmoteSource {
             EmoteSource::Twitch => write!(f, "twitch"),
             EmoteSource::TwitchGlobal => write!(f, "twitch_global"),
             EmoteSource::TwitchSubscriber => write!(f, "twitch_subscriber"),
-            EmoteSource::BTTV => write!(f, "bttv"),
-            EmoteSource::FFZ => write!(f, "ffz"),
+            EmoteSource::Bttv => write!(f, "bttv"),
+            EmoteSource::Ffz => write!(f, "ffz"),
             EmoteSource::SevenTV => write!(f, "7tv"),
             EmoteSource::YouTube => write!(f, "youtube"),
             EmoteSource::YouTubeCustom => write!(f, "youtube_custom"),

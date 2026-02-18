@@ -3,10 +3,12 @@ pub mod parser;
 pub mod providers;
 pub mod renderer;
 
-pub use cache::*;
-pub use parser::*;
-pub use providers::*;
-pub use renderer::*;
+// Explicit re-exports to avoid ambiguous glob re-exports
+pub use cache::{EmoteCache, EmoteCache as Cache};
+pub use parser::EmoteParser;
+pub use providers::{EmoteApiClient, TwitchEmoteProvider, BTTVEmoteProvider, FFZEmoteProvider, SevenTVEmoteProvider};
+pub use providers::EmoteProvider;
+pub use renderer::EmoteRenderer;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -169,8 +171,8 @@ impl EmoteSystem {
     fn map_provider_to_source(&self, provider: &str) -> crate::connection::EmoteSource {
         match provider {
             "twitch" => crate::connection::EmoteSource::Twitch,
-            "bttv" => crate::connection::EmoteSource::BTTV,
-            "ffz" => crate::connection::EmoteSource::FFZ,
+            "bttv" => crate::connection::EmoteSource::Bttv,
+            "ffz" => crate::connection::EmoteSource::Ffz,
             "7tv" => crate::connection::EmoteSource::SevenTV,
             "youtube" => crate::connection::EmoteSource::YouTube,
             _ => crate::connection::EmoteSource::Local,

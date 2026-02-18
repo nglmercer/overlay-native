@@ -7,9 +7,7 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::core::{
-    ChatMessageElement, CoreRenderer, EmoteElement, GiftElement, MessageFilter, OverlayElement,
-};
+use crate::core::{ChatMessageElement, CoreRenderer, EmoteElement, GiftElement, MessageFilter};
 use crate::transport::schema::IncomingMessage;
 use crate::transport::websocket::WsEvent;
 

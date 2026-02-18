@@ -91,8 +91,6 @@ impl Default for CredentialManager {
 
 /// Utilidades comunes para plataformas
 pub mod utils {
-    use super::*;
-
     pub fn sanitize_username(username: &str) -> String {
         username
             .chars()

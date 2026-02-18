@@ -1,6 +1,6 @@
+use overlay_native::core::EmoteElement;
 #[cfg(windows)]
 use overlay_native::windows::WindowsWindow;
-use overlay_native::core::EmoteElement;
 
 #[cfg(windows)]
 fn main() {

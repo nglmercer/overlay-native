@@ -51,9 +51,10 @@ use crate::platforms::CredentialManager;
 use crate::render::WindowConfig;
 
 /// Application events for the emitter system
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 enum AppEvent {
-    MessageReceived(connection::ChatMessage),
+    MessageReceived(Box<connection::ChatMessage>),
     WindowUpdate,
     Shutdown,
 }
@@ -177,7 +178,7 @@ impl AppState {
             let mut pm = platform_manager.write().await;
             loop {
                 if let Some(message) = pm.next_message().await {
-                    if let Err(e) = event_emitter.emit(AppEvent::MessageReceived(message)) {
+                    if let Err(e) = event_emitter.emit(AppEvent::MessageReceived(Box::new(message))) {
                         eprintln!("⚠️ Failed to emit message event: {}", e);
                     }
                 }

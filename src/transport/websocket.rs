@@ -4,7 +4,6 @@
 /// los mensajes validados al sistema de renderizado.
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 use futures::{SinkExt, StreamExt};
 use serde_json;
@@ -153,7 +152,7 @@ async fn handle_connection(
             Ok(Message::Text(text)) => {
                 handle_text_message(&text, addr, &event_tx, &broadcast_tx).await;
             }
-            Ok(Message::Ping(data)) => {
+            Ok(Message::Ping(_data)) => {
                 // El protocolo WebSocket maneja pings automáticamente con tungstenite,
                 // pero si queremos responder manualmente a mensajes "ping" de la app:
                 let pong = serde_json::to_string(&OutgoingMessage::Pong).unwrap_or_default();

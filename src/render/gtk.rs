@@ -272,7 +272,7 @@ fn build_message_content(container: &gtk::Box, content: &str, emotes: &[crate::c
             // Add emote image
             let img = gtk::Image::new();
             // TODO: Load emote from cache or URL
-            if let Some(url) = &emote.url {
+            if let Some(_url) = &emote.url {
                 // Set placeholder for now
                 img.set_from_icon_name(Some("face-smile-symbolic"), gtk::IconSize::Button);
             }

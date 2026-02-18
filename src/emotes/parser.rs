@@ -211,7 +211,7 @@ impl EmoteParser {
     }
 
     /// Elimina emotes duplicados manteniendo el orden
-    fn deduplicate_emotes(&self, mut emotes: Vec<Emote>) -> Vec<Emote> {
+    fn deduplicate_emotes(&self, emotes: Vec<Emote>) -> Vec<Emote> {
         let mut seen_ids = std::collections::HashSet::new();
         let mut result = Vec::new();
 
@@ -334,7 +334,7 @@ mod tests {
         parser.register_known_emotes(vec![EmoteInfo {
             id: "bttv123".to_string(),
             name: "FeelsBadMan".to_string(),
-            source: EmoteSource::BTTV,
+            source: EmoteSource::Bttv,
             url: None,
             is_animated: false,
             width: None,
@@ -347,7 +347,7 @@ mod tests {
 
         assert_eq!(emotes.len(), 1);
         assert_eq!(emotes[0].name, "FeelsBadMan");
-        assert_eq!(emotes[0].source, EmoteSource::BTTV);
+        assert_eq!(emotes[0].source, EmoteSource::Bttv);
     }
 
     #[test]

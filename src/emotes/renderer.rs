@@ -1,5 +1,4 @@
-use crate::connection::{Emote, EmoteMetadata, EmoteSource, TextPosition};
-use std::collections::HashMap;
+use crate::connection::{Emote, EmoteSource};
 use std::path::PathBuf;
 
 /// Renderer de emotes que maneja la obtención y procesamiento de imágenes
@@ -112,8 +111,8 @@ impl EmoteRenderer {
                     emote.id
                 ))
             }
-            EmoteSource::BTTV => Ok(format!("https://cdn.betterttv.net/emote/{}/3x", emote.id)),
-            EmoteSource::FFZ => Ok(format!("https://cdn.frankerfacez.com/emote/{}/4", emote.id)),
+            EmoteSource::Bttv => Ok(format!("https://cdn.betterttv.net/emote/{}/3x", emote.id)),
+            EmoteSource::Ffz => Ok(format!("https://cdn.frankerfacez.com/emote/{}/4", emote.id)),
             EmoteSource::SevenTV => Ok(format!("https://cdn.7tv.app/emote/{}/4x", emote.id)),
             _ => Err(RenderError::FormatError(
                 "Cannot determine URL for emote source".to_string(),
@@ -398,7 +397,7 @@ mod tests {
         );
 
         let bttv_emote =
-            create_test_emote("5e7c3560b4d743c5830f0ae4", "FeelsBadMan", EmoteSource::BTTV);
+            create_test_emote("5e7c3560b4d743c5830f0ae4", "FeelsBadMan", EmoteSource::Bttv);
         let url = renderer.resolve_emote_url(&bttv_emote).unwrap();
         assert_eq!(
             url,

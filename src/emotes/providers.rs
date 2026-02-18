@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -55,7 +55,7 @@ impl EmoteApiClient {
         }
     }
 
-    pub fn with_retry_config(mut self, max_retries: u32, base_delay_ms: u64) -> Self {
+    pub fn with_retry_config(self, _max_retries: u32, _base_delay_ms: u64) -> Self {
         // Store retry config for later use in get_json
         self
     }
@@ -225,7 +225,7 @@ impl EmoteProvider for TwitchEmoteProvider {
     ) -> Result<Vec<EmoteData>, EmoteError> {
         // Esto requeriría la API de Twitch que necesita autenticación
         // Por ahora implementamos un simulación
-        let url = format!(
+        let _url = format!(
             "https://api.twitch.tv/helix/chat/emotes?broadcaster_id={}",
             channel
         );
@@ -369,7 +369,7 @@ impl BTTVEmoteProvider {
 impl EmoteProvider for BTTVEmoteProvider {
     async fn parse_emotes(
         &self,
-        message: &str,
+        _message: &str,
         _emote_data: &str,
     ) -> Result<Vec<Emote>, EmoteError> {
         // BTTV no proporciona datos de emotes en el mensaje, se debe buscar por nombre

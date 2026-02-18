@@ -6,7 +6,7 @@ use tokio::time::Instant;
 
 use glib::{object_subclass, wrapper};
 use glib_macros::Properties;
-use gtk::prelude::{ContainerExt, GtkWindowExt, WidgetExt};
+use gtk::prelude::{ContainerExt, WidgetExt};
 use gtk::{prelude::*, subclass::prelude::*};
 use std::cell::RefCell;
 
@@ -126,7 +126,7 @@ pub async fn spawn_window(
         let mut start = 0;
         for emote in emotes {
             if let Some(pos) = emote.positions.first() {
-                let char_range = pos.start..pos.end;
+                let _char_range = pos.start..pos.end;
                 let plain = start..pos.start;
                 if !plain.is_empty() {
                     let plain_txt = &message[plain];
@@ -265,26 +265,25 @@ impl std::fmt::Display for AnchorPoint {
     }
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum AnchorAlignment {
-    START,
-    CENTER,
-    END,
+    Start,
+    Center,
+    End,
 }
 
 impl Default for AnchorAlignment {
     fn default() -> Self {
-        Self::START
+        Self::Start
     }
 }
 
 impl AnchorAlignment {
     pub fn alignment_to_coordinate(&self, size_inner: i32, size_container: i32) -> i32 {
         match self {
-            AnchorAlignment::START => 0,
-            AnchorAlignment::CENTER => (size_container / 2) - (size_inner / 2),
-            AnchorAlignment::END => size_container - size_inner,
+            AnchorAlignment::Start => 0,
+            AnchorAlignment::Center => (size_container / 2) - (size_inner / 2),
+            AnchorAlignment::End => size_container - size_inner,
         }
     }
 }

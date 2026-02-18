@@ -34,8 +34,9 @@ impl Default for PlatformConfig {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum PlatformType {
+    #[default]
     Twitch,
     YouTube,
     Kick,
@@ -95,31 +96,13 @@ impl std::fmt::Display for PlatformType {
     }
 }
 
-impl Default for PlatformType {
-    fn default() -> Self {
-        PlatformType::Twitch
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Credentials {
     pub username: Option<String>,
     pub oauth_token: Option<String>,
     pub api_key: Option<String>,
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
-}
-
-impl Default for Credentials {
-    fn default() -> Self {
-        Self {
-            username: None,
-            oauth_token: None,
-            api_key: None,
-            client_id: None,
-            client_secret: None,
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

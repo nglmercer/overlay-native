@@ -109,18 +109,18 @@ async fn test_window_geometry() -> Result<(), Box<dyn std::error::Error>> {
     {
         // Test anchor point calculations
         let center_anchor = AnchorPoint {
-            x: AnchorAlignment::CENTER,
-            y: AnchorAlignment::CENTER,
+            x: AnchorAlignment::Center,
+            y: AnchorAlignment::Center,
         };
 
         let top_left_anchor = AnchorPoint {
-            x: AnchorAlignment::START,
-            y: AnchorAlignment::START,
+            x: AnchorAlignment::Start,
+            y: AnchorAlignment::Start,
         };
 
         let bottom_right_anchor = AnchorPoint {
-            x: AnchorAlignment::END,
-            y: AnchorAlignment::END,
+            x: AnchorAlignment::End,
+            y: AnchorAlignment::End,
         };
 
         println!(
@@ -149,10 +149,10 @@ async fn test_window_geometry() -> Result<(), Box<dyn std::error::Error>> {
         let container_size = 1000;
         let window_size = 200;
 
-        let start_pos = AnchorAlignment::START.alignment_to_coordinate(window_size, container_size);
+        let start_pos = AnchorAlignment::Start.alignment_to_coordinate(window_size, container_size);
         let center_pos =
-            AnchorAlignment::CENTER.alignment_to_coordinate(window_size, container_size);
-        let end_pos = AnchorAlignment::END.alignment_to_coordinate(window_size, container_size);
+            AnchorAlignment::Center.alignment_to_coordinate(window_size, container_size);
+        let end_pos = AnchorAlignment::End.alignment_to_coordinate(window_size, container_size);
 
         println!("   ✅ Alignment calculations:");
         println!("      - START: {} (should be 0)", start_pos);
@@ -364,7 +364,6 @@ async fn test_test_message() -> Result<(), Box<dyn std::error::Error>> {
         config.window.test_message.len() <= 500,
         "Test message too long"
     );
-
 
     // Test that the message is appropriate for display
     assert!(

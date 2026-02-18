@@ -179,8 +179,8 @@ pub fn a(
 ) -> (Option<WindowGeometry>, crate::window::Window) {
     let geometry = WindowGeometry {
         anchor_point: AnchorPoint {
-            x: AnchorAlignment::START,
-            y: AnchorAlignment::START,
+            x: AnchorAlignment::Start,
+            y: AnchorAlignment::Start,
         },
         offset: Coords { x: pos.0, y: pos.1 },
         size: Coords { x: 200, y: 50 },
