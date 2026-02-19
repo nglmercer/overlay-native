@@ -37,6 +37,10 @@ impl GtkWindow {
         message: &ChatMessageElement,
         config: &WindowConfig,
     ) -> Result<Self, RenderError> {
+        // Use Popup window type for overlay windows on Linux
+        #[cfg(target_os = "linux")]
+        let window = gtk::Window::new(gtk::WindowType::Popup);
+        #[cfg(not(target_os = "linux"))]
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
 
         // Configure window
@@ -96,6 +100,9 @@ impl GtkWindow {
 
     /// Create a new GTK overlay window from a gift event
     pub fn from_gift(gift: &GiftElement, config: &WindowConfig) -> Result<Self, RenderError> {
+        #[cfg(target_os = "linux")]
+        let window = gtk::Window::new(gtk::WindowType::Popup);
+        #[cfg(not(target_os = "linux"))]
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
 
         window.set_title(&format!("Overlay - Gift from {}", gift.from_user));
@@ -166,6 +173,9 @@ impl GtkWindow {
 
     /// Create a new GTK overlay window from an emote event
     pub fn from_emote(emote: &EmoteElement, config: &WindowConfig) -> Result<Self, RenderError> {
+        #[cfg(target_os = "linux")]
+        let window = gtk::Window::new(gtk::WindowType::Popup);
+        #[cfg(not(target_os = "linux"))]
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
 
         window.set_title(&format!("Overlay - Emote {}", emote.name));
@@ -230,7 +240,6 @@ impl GtkWindow {
         self.window.show_all();
     }
 }
-
 impl PlatformWindow for GtkWindow {
     fn id(&self) -> &str {
         &self.id
@@ -250,6 +259,18 @@ impl PlatformWindow for GtkWindow {
 
     fn created_at(&self) -> Instant {
         self.created
+    }
+}
+
+impl Clone for GtkWindow {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            window: self.window.clone(),
+            progress: self.progress.clone(),
+            created: self.created,
+            duration: self.duration,
+        }
     }
 }
 

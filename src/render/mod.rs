@@ -103,5 +103,8 @@ impl Default for WindowConfig {
 #[allow(unused_imports)]
 pub use gtk::GtkWindow as PlatformWindowImpl;
 
+#[cfg(unix)]
+pub use gtk::GtkWindow;
+
 #[cfg(windows)]
 pub use win32::Win32Window as PlatformWindowImpl;

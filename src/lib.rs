@@ -86,4 +86,6 @@ pub mod x11;
 // Re-exports for convenience
 pub use core::{ChatMessageElement, CoreRenderer, EmoteElement, GiftElement, OverlayElement};
 pub use render::{PlatformWindow, WindowConfig};
+#[cfg(unix)]
+pub use render::GtkWindow;
 pub use transport::{ChatMessagePayload, GiftPayload, IncomingMessage, TransportBridge};

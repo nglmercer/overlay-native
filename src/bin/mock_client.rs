@@ -2,14 +2,31 @@
 //!
 //! This example creates a mock client that sends random users and random comments
 //! to test the overlay functionality without needing a real streaming platform connection.
+//! It demonstrates the complete rendering flow using the core renderer.
 //!
 //! Run with: cargo run --bin mock_client
 
-use overlay_native::core::ChatMessageElement;
-use overlay_native::transport::{ChatMessagePayload, EmotePayload, IncomingMessage};
+#[cfg(unix)]
+use gtk::gdk;
+#[cfg(unix)]
+use gtk::prelude::*;
+
+use overlay_native::core::{
+    ChatMessageElement, CoreRenderer, GiftElement, OverlayElement,
+};
+use overlay_native::render::{PlatformWindow, WindowConfig};
+use overlay_native::transport::{
+    ChatMessagePayload, EmotePayload, EmotePosition, GiftPayload, GiftType as TransportGiftType,
+    IncomingMessage,
+};
 use rand::seq::SliceRandom;
 use rand::Rng;
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
+
+#[cfg(unix)]
+use overlay_native::render::gtk::GtkWindow;
 
 /// Random username generator
 fn generate_random_username() -> String {
@@ -242,7 +259,7 @@ fn generate_random_emotes(content: &str) -> Vec<EmotePayload> {
                         id
                     )),
                     is_animated: false,
-                    positions: vec![overlay_native::transport::EmotePosition {
+                    positions: vec![EmotePosition {
                         start,
                         end: start + name.len(),
                     }],
@@ -362,14 +379,14 @@ fn create_random_message() -> IncomingMessage {
     if rng.gen_bool(0.9) {
         IncomingMessage::ChatMessage(create_random_chat_payload())
     } else {
-        IncomingMessage::Gift(overlay_native::transport::GiftPayload {
+        IncomingMessage::Gift(GiftPayload {
             from_user: generate_random_username(),
             to_user: if rng.gen_bool(0.5) {
                 Some(generate_random_username())
             } else {
                 None
             },
-            gift_type: overlay_native::transport::GiftType::Subscription,
+            gift_type: TransportGiftType::Subscription,
             amount: Some(rng.gen_range(1..12)),
             tier: Some("Tier 1".to_string()),
             message: Some(generate_random_message()),
@@ -383,93 +400,250 @@ fn main() {
     println!("║           OVERLAY NATIVE - MOCK CLIENT EXAMPLE               ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("This example generates random chat messages to test the overlay.");
-    println!("It demonstrates the message format expected by the transport layer.");
+    println!("This example generates random chat messages and renders them on the overlay.");
+    println!("It demonstrates the complete message flow from generation to rendering.");
     println!();
+
+    // Initialize GTK for window rendering
+    #[cfg(unix)]
+    {
+        if let Err(e) = gtk::init() {
+            eprintln!("Failed to initialize GTK: {}", e);
+            return;
+        }
+
+        // Load CSS styles
+        let styles = gtk::CssProvider::new();
+        if let Err(e) = styles.load_from_data(include_bytes!("../../style.css")) {
+            eprintln!("Failed to load styles: {}", e);
+        } else {
+            gtk::StyleContext::add_provider_for_screen(
+                &gdk::Screen::default().expect("Cannot get main screen"),
+                &styles,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
+        }
+    }
+
+    // Get monitor geometry for window positioning
+    let monitor_width: i32;
+    let monitor_height: i32;
+    
+    #[cfg(unix)]
+    {
+        let display = gdk::Display::default().expect("No default display");
+        let monitor = display.primary_monitor().expect("No primary monitor");
+        let geom = monitor.geometry();
+        monitor_width = geom.width();
+        monitor_height = geom.height();
+    }
+
+    #[cfg(windows)]
+    {
+        monitor_width = 1920;
+        monitor_height = 1080;
+    }
+
+    println!("Monitor: {}x{}", monitor_width, monitor_height);
+
+    // Create window positions (grid layout)
+    let mut positions = Vec::new();
+    let grid_size = 3;
+    let margin = 50;
+    let window_width = 400;
+    let window_height = 100;
+
+    let cell_width = (monitor_width - margin * 2 - window_width) / grid_size;
+    let cell_height = (monitor_height - margin * 2 - window_height) / grid_size;
+
+    for x in 0..grid_size {
+        for y in 0..grid_size {
+            positions.push((margin + x * cell_width, margin + y * cell_height));
+        }
+    }
+    positions.shuffle(&mut rand::thread_rng());
+
+    // Create default window config
+    let window_config = WindowConfig {
+        position: (0, 0),
+        size: (window_width, window_height),
+        duration: Duration::from_secs(10),
+        opacity: 0.9,
+        border_radius: 8,
+        font_family: "Segoe UI".to_string(),
+        font_size: 14,
+    };
+
+    // Create core renderer
+    let renderer = Arc::new(RwLock::new(CoreRenderer::new()));
 
     let mut rng = rand::thread_rng();
     let num_messages = 10;
 
-    println!("📢 Generating {} random messages:\n", num_messages);
-    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("📢 Generating {} messages...", num_messages);
+
+    let mut position_idx = 0;
+    let mut active_windows: Vec<(String, GtkWindow, Instant)> = Vec::new();
 
     for i in 1..=num_messages {
         let message = create_random_message();
 
         // Validate the message
         if let Err(e) = message.validate() {
-            println!("❌ Message {} validation failed: {}", i, e);
+            eprintln!("❌ Validation failed: {}", e);
             continue;
         }
 
         match message {
             IncomingMessage::ChatMessage(payload) => {
-                println!("\n💬 Message #{}: Chat Message", i);
-                println!("   👤 Username: {}", payload.username);
-                println!("   📝 Content: {}", payload.content);
-
-                if let Some(color) = &payload.user_color {
-                    println!("   🎨 Color: {}", color);
-                }
-
+                print!("💬 [{}/{}] {}: {}", i, num_messages, payload.username, payload.content);
                 if !payload.emotes.is_empty() {
-                    println!(
-                        "   😀 Emotes: {}",
-                        payload
-                            .emotes
-                            .iter()
-                            .map(|e| e.name.clone())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
+                    print!(" (+{} emotes)", payload.emotes.len());
                 }
-
                 if !payload.badges.is_empty() {
-                    println!(
-                        "   🏅 Badges: {}",
-                        payload
-                            .badges
-                            .iter()
-                            .map(|b| b.name.clone())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
+                    print!(" (+{} badges)", payload.badges.len());
+                }
+                println!();
+
+                // Convert to core message type
+                let core_message: ChatMessageElement = payload.into();
+
+                // Render immediately
+                #[cfg(unix)]
+                {
+                    let pos = positions[position_idx];
+                    position_idx = (position_idx + 1) % positions.len();
+
+                    let mut config = window_config.clone();
+                    config.position = pos;
+
+                    match GtkWindow::from_chat_message(&core_message, &config) {
+                        Ok(window) => {
+                            window.show();
+                            active_windows.push((core_message.id.clone(), window, Instant::now()));
+                        }
+                        Err(e) => eprintln!("   ❌ Window error: {}", e),
+                    }
                 }
 
-                // Convert to core type
-                let core_message: ChatMessageElement = payload.into();
-                println!(
-                    "   ✅ Converted to core message with ID: {}",
-                    core_message.id
-                );
+                // Process through core renderer
+                let renderer_clone = renderer.clone();
+                let element = OverlayElement::ChatMessage(core_message);
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(async {
+                        let _ = renderer_clone.write().await.queue_element(element.clone()).await;
+                    });
             }
             IncomingMessage::Gift(payload) => {
-                println!("\n🎁 Message #{}: Gift Event", i);
-                println!("   👤 From: {}", payload.from_user);
-                if let Some(to) = &payload.to_user {
-                    println!("   👤 To: {}", to);
+                println!("🎁 [{}/{}] Gift: {} -> {:?}", i, num_messages, payload.from_user, payload.to_user);
+
+                // Convert to core gift element
+                let gift_element: GiftElement = payload.into();
+
+                // Render the gift using GTK
+                #[cfg(unix)]
+                {
+                    let pos = positions[position_idx];
+                    position_idx = (position_idx + 1) % positions.len();
+
+                    let mut config = window_config.clone();
+                    config.position = pos;
+
+                    match GtkWindow::from_gift(&gift_element, &config) {
+                        Ok(window) => {
+                            window.show();
+                            active_windows.push((gift_element.id.clone(), window, Instant::now()));
+                        }
+                        Err(e) => eprintln!("   ❌ Window error: {}", e),
+                    }
                 }
-                println!("   🎁 Type: {:?}", payload.gift_type);
-                if let Some(amount) = payload.amount {
-                    println!("   📊 Amount: {}", amount);
-                }
+
+                // Process through core renderer
+                let renderer_clone = renderer.clone();
+                let element = OverlayElement::Gift(gift_element);
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(async {
+                        let _ = renderer_clone.write().await.queue_element(element.clone()).await;
+                    });
             }
             _ => {}
         }
 
-        // Simulate delay between messages
-        let delay = rng.gen_range(100..500);
+        // Process GTK events to show window immediately after creation
+        #[cfg(unix)]
+        {
+            // Show the window and process GTK events
+            for _ in 0..10 {
+                gtk::main_iteration_do(false);
+                std::thread::sleep(Duration::from_millis(16)); // ~60fps
+            }
+        }
+        
+        // Small delay between messages (simulating real-time chat)
+        let delay = rng.gen_range(500..1500);
         std::thread::sleep(Duration::from_millis(delay));
     }
 
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("\n✅ Mock client example completed!");
-    println!("\n💡 Tips:");
-    println!("   - Use the ChatMessagePayload format to send messages via WebSocket");
-    println!("   - The overlay expects JSON messages following the IncomingMessage schema");
-    println!("   - Each message is validated before being displayed");
-    println!("\n📚 Example JSON message format:");
+    println!("\n✅ {} windows displayed! Closing in 10s...", active_windows.len());
 
+    // Keep the application running to show the windows
+    #[cfg(unix)]
+    {
+        // Update progress bars and clean up expired windows
+        let start_time = Instant::now();
+        let duration = Duration::from_secs(10);
+
+        while start_time.elapsed() < duration {
+            gtk::main_iteration_do(false);
+            std::thread::sleep(Duration::from_millis(16));
+
+            let elapsed = start_time.elapsed();
+            
+            // Update progress bars for all active windows
+            // We need to rebuild the vector with mutable windows
+            let mut to_close: Vec<String> = Vec::new();
+            
+            for (id, window, created) in active_windows.iter_mut() {
+                let window_elapsed = created.elapsed();
+                
+                if window_elapsed >= duration {
+                    // Window expired
+                    to_close.push(id.clone());
+                } else {
+                    // Update progress bar (remaining time / total duration)
+                    let remaining = duration - window_elapsed;
+                    let progress = remaining.as_secs_f64() / duration.as_secs_f64();
+                    window.set_progress(progress);
+                }
+            }
+            
+            // Close expired windows
+            for id in &to_close {
+                println!("   🔒 Closing expired window: {}", id);
+                if let Some(pos) = active_windows.iter().position(|(wid, _, _)| wid == id) {
+                    let (_, window, _) = active_windows.remove(pos);
+                    window.close();
+                }
+            }
+        }
+
+        // Close remaining windows
+        for (id, window, _) in active_windows.drain(..) {
+            println!("   🔒 Closing window: {}", id);
+            window.close();
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        println!("   (Windows rendering not implemented in mock client)");
+        std::thread::sleep(Duration::from_secs(5));
+    }
+
+    // Print example JSON
     let example_json = serde_json::json!({
         "type": "chat_message",
         "data": {
@@ -491,7 +665,7 @@ fn main() {
     });
 
     println!(
-        "\n{}\n",
+        "\n{}",
         serde_json::to_string_pretty(&example_json).unwrap()
     );
 }
