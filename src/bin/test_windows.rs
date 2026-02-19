@@ -650,6 +650,10 @@ async fn test_windows_window_lifecycle() -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
+type TestResult = Result<(), Box<dyn std::error::Error>>;
+type TestFuture = std::pin::Pin<Box<dyn std::future::Future<Output = TestResult>>>;
+type TestFunction = (&'static str, fn() -> TestFuture);
+
 async fn run_all_window_tests() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("🧪 OVERLAY NATIVE - COMPREHENSIVE WINDOW TEST SUITE");
@@ -660,12 +664,7 @@ async fn run_all_window_tests() -> Result<(), Box<dyn std::error::Error>> {
     let mut tests_failed = 0;
 
     // Run individual tests
-    let test_functions: Vec<(
-        &str,
-        fn() -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error>>>>,
-        >,
-    )> = vec![
+    let test_functions: Vec<TestFunction> = vec![
         ("Configuration Validation", || {
             Box::pin(test_window_config_validation())
         }),

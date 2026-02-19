@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// Configuration for the core renderer
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CoreConfig {
     /// Window/message display settings
     pub window: WindowSettings,
@@ -22,7 +21,6 @@ pub struct CoreConfig {
     /// Message processing settings
     pub processing: ProcessingSettings,
 }
-
 
 /// Window display settings
 #[derive(Debug, Clone, Serialize, Deserialize)]

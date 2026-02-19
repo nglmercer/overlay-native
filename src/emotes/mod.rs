@@ -4,9 +4,11 @@ pub mod providers;
 pub mod renderer;
 
 // Explicit re-exports to avoid ambiguous glob re-exports
-pub use cache::{EmoteCache, EmoteCache as Cache};
+pub use cache::EmoteCache;
 pub use parser::EmoteParser;
-pub use providers::{EmoteApiClient, TwitchEmoteProvider, BTTVEmoteProvider, FFZEmoteProvider, SevenTVEmoteProvider};
+pub use providers::{
+    BTTVEmoteProvider, FFZEmoteProvider, SevenTVEmoteProvider, TwitchEmoteProvider,
+};
 pub use renderer::EmoteRenderer;
 
 use serde::{Deserialize, Serialize};

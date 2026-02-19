@@ -100,6 +100,7 @@ impl Default for WindowConfig {
 
 /// Re-export platform-specific types
 #[cfg(unix)]
+#[allow(unused_imports)]
 pub use gtk::GtkWindow as PlatformWindowImpl;
 
 #[cfg(windows)]

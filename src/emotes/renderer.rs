@@ -25,11 +25,11 @@ pub struct RenderedEmote {
 
 #[derive(Debug)]
 pub enum RenderError {
-    NetworkError(String),
-    IoError(String),
-    FormatError(String),
-    CacheError(String),
-    SizeError(String),
+    Network(String),
+    Io(String),
+    Format(String),
+    Cache(String),
+    Size(String),
 }
 
 impl EmoteRenderer {
@@ -115,7 +115,7 @@ impl EmoteRenderer {
             EmoteSource::Bttv => Ok(format!("https://cdn.betterttv.net/emote/{}/3x", emote.id)),
             EmoteSource::Ffz => Ok(format!("https://cdn.frankerfacez.com/emote/{}/4", emote.id)),
             EmoteSource::SevenTV => Ok(format!("https://cdn.7tv.app/emote/{}/4x", emote.id)),
-            _ => Err(RenderError::FormatError(
+            _ => Err(RenderError::Format(
                 "Cannot determine URL for emote source".to_string(),
             )),
         }
@@ -127,16 +127,16 @@ impl EmoteRenderer {
             .timeout(std::time::Duration::from_secs(10))
             .user_agent("Overlay-Native/1.0")
             .build()
-            .map_err(|e| RenderError::NetworkError(e.to_string()))?;
+            .map_err(|e| RenderError::Network(e.to_string()))?;
 
         let response = client
             .get(url)
             .send()
             .await
-            .map_err(|e| RenderError::NetworkError(e.to_string()))?;
+            .map_err(|e| RenderError::Network(e.to_string()))?;
 
         if !response.status().is_success() {
-            return Err(RenderError::NetworkError(format!(
+            return Err(RenderError::Network(format!(
                 "HTTP {}: {}",
                 response.status(),
                 response.status().canonical_reason().unwrap_or("Unknown")
@@ -146,14 +146,14 @@ impl EmoteRenderer {
         response
             .bytes()
             .await
-            .map_err(|e| RenderError::NetworkError(e.to_string()))
+            .map_err(|e| RenderError::Network(e.to_string()))
             .map(|bytes| bytes.to_vec())
     }
 
     /// Detecta el formato de imagen
     pub fn detect_image_format(&self, data: &[u8]) -> Result<String, RenderError> {
         if data.len() < 8 {
-            return Err(RenderError::FormatError("File too small".to_string()));
+            return Err(RenderError::Format("File too small".to_string()));
         }
 
         // Detectar por magic bytes
@@ -172,7 +172,7 @@ impl EmoteRenderer {
             Ok("jpg".to_string())
         } else {
             // Intentar detectar por extensión si no se puede por magic bytes
-            Err(RenderError::FormatError("Unknown image format".to_string()))
+            Err(RenderError::Format("Unknown image format".to_string()))
         }
     }
 
@@ -185,15 +185,13 @@ impl EmoteRenderer {
         // Verificar límites de tamaño
         if data.len() > 10 * 1024 * 1024 {
             // 10MB limit
-            return Err(RenderError::SizeError("Image too large".to_string()));
+            return Err(RenderError::Size("Image too large".to_string()));
         }
 
         // Verificar dimensiones si están disponibles
         if let (Some(width), Some(height)) = (emote.width, emote.height) {
             if width > 1024 || height > 1024 {
-                return Err(RenderError::SizeError(
-                    "Image dimensions too large".to_string(),
-                ));
+                return Err(RenderError::Size("Image dimensions too large".to_string()));
             }
         }
 
@@ -210,7 +208,7 @@ impl EmoteRenderer {
         if !self.cache_dir.exists() {
             tokio::fs::create_dir_all(&self.cache_dir)
                 .await
-                .map_err(|e| RenderError::IoError(e.to_string()))?;
+                .map_err(|e| RenderError::Io(e.to_string()))?;
         }
 
         // Generar nombre de archivo único
@@ -225,7 +223,7 @@ impl EmoteRenderer {
         // Guardar archivo
         tokio::fs::write(&file_path, data)
             .await
-            .map_err(|e| RenderError::IoError(e.to_string()))?;
+            .map_err(|e| RenderError::Io(e.to_string()))?;
 
         Ok(Some(file_path))
     }
@@ -239,12 +237,12 @@ impl EmoteRenderer {
         let mut total_size = 0u64;
         let mut entries = tokio::fs::read_dir(&self.cache_dir)
             .await
-            .map_err(|e| RenderError::IoError(e.to_string()))?;
+            .map_err(|e| RenderError::Io(e.to_string()))?;
 
         while let Some(entry) = entries
             .next_entry()
             .await
-            .map_err(|e| RenderError::IoError(e.to_string()))?
+            .map_err(|e| RenderError::Io(e.to_string()))?
         {
             let path = entry.path();
             if path.is_file() {
@@ -255,7 +253,7 @@ impl EmoteRenderer {
                     if total_size > self.max_cache_size_mb * 1024 * 1024 {
                         tokio::fs::remove_file(&path)
                             .await
-                            .map_err(|e| RenderError::IoError(e.to_string()))?;
+                            .map_err(|e| RenderError::Io(e.to_string()))?;
                     }
                 }
             }
@@ -285,12 +283,12 @@ impl EmoteRenderer {
 
         let mut entries = tokio::fs::read_dir(&self.cache_dir)
             .await
-            .map_err(|e| RenderError::IoError(e.to_string()))?;
+            .map_err(|e| RenderError::Io(e.to_string()))?;
 
         while let Some(entry) = entries
             .next_entry()
             .await
-            .map_err(|e| RenderError::IoError(e.to_string()))?
+            .map_err(|e| RenderError::Io(e.to_string()))?
         {
             let path = entry.path();
             if path.is_file() {

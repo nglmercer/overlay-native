@@ -44,5 +44,7 @@ pub mod ipc;
 pub mod schema;
 pub mod websocket;
 
+#[allow(unused_imports)]
 pub use bridge::{BridgeError, BridgeEvent, BridgeStatus, TransportBridge};
+#[allow(unused_imports)]
 pub use schema::*;

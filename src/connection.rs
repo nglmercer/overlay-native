@@ -9,7 +9,8 @@ use tokio::sync::mpsc;
 pub type PlatformError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Type alias for a boxed streaming platform
-pub type BoxedStreamingPlatform = Box<dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError> + Send + Sync>;
+pub type BoxedStreamingPlatform =
+    Box<dyn StreamingPlatform<Error = crate::platforms::PlatformWrapperError> + Send + Sync>;
 
 /// Type alias for a shared, mutex-protected platform
 pub type SharedPlatform = std::sync::Arc<tokio::sync::Mutex<BoxedStreamingPlatform>>;
@@ -82,15 +83,13 @@ pub struct TextPosition {
     pub end: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EmoteMetadata {
     pub is_zero_width: bool,
     pub modifier: bool,
     pub emote_set_id: Option<String>,
     pub tier: Option<String>, // para subscriber emotes
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageMetadata {

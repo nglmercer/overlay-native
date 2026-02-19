@@ -144,7 +144,6 @@ impl EmoteCache {
 
     /// Obtiene las estadísticas del cache
     pub fn stats(&mut self) -> CacheStats {
-        
         CacheStats {
             size: self.cache.len(),
             max_size: self.max_size,

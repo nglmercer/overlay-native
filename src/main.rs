@@ -4,6 +4,9 @@
 //! The application is now platform-agnostic and receives messages
 //! via the transport layer (IPC/WebSocket).
 
+// Allow dead code for code that provides APIs for future use
+#![allow(dead_code)]
+
 mod config;
 mod connection;
 mod core;
@@ -178,7 +181,8 @@ impl AppState {
             let mut pm = platform_manager.write().await;
             loop {
                 if let Some(message) = pm.next_message().await {
-                    if let Err(e) = event_emitter.emit(AppEvent::MessageReceived(Box::new(message))) {
+                    if let Err(e) = event_emitter.emit(AppEvent::MessageReceived(Box::new(message)))
+                    {
                         eprintln!("⚠️ Failed to emit message event: {}", e);
                     }
                 }

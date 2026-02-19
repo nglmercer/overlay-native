@@ -79,7 +79,7 @@ impl TransportBridge {
                 // Validate message
                 payload
                     .validate()
-                    .map_err(|e| BridgeError::ValidationError(e.to_string()))?;
+                    .map_err(|e| BridgeError::Validation(e.to_string()))?;
 
                 // Convert to core message
                 let chat_msg: ChatMessageElement = payload.into();
@@ -90,7 +90,7 @@ impl TransportBridge {
                 renderer
                     .process_chat_message(chat_msg)
                     .await
-                    .map_err(|e| BridgeError::RenderError(e.to_string()))?;
+                    .map_err(|e| BridgeError::Render(e.to_string()))?;
 
                 // Emit event
                 if let Some(ref tx) = self.event_tx {
@@ -103,7 +103,7 @@ impl TransportBridge {
             IncomingMessage::Gift(payload) => {
                 payload
                     .validate()
-                    .map_err(|e| BridgeError::ValidationError(e.to_string()))?;
+                    .map_err(|e| BridgeError::Validation(e.to_string()))?;
 
                 let gift: GiftElement = payload.into();
                 let id = gift.id.clone();
@@ -112,7 +112,7 @@ impl TransportBridge {
                 renderer
                     .process_gift(gift)
                     .await
-                    .map_err(|e| BridgeError::RenderError(e.to_string()))?;
+                    .map_err(|e| BridgeError::Render(e.to_string()))?;
 
                 if let Some(ref tx) = self.event_tx {
                     let _ = tx.send(BridgeEvent::MessageProcessed(id));
@@ -124,7 +124,7 @@ impl TransportBridge {
             IncomingMessage::Emote(payload) => {
                 payload
                     .validate()
-                    .map_err(|e| BridgeError::ValidationError(e.to_string()))?;
+                    .map_err(|e| BridgeError::Validation(e.to_string()))?;
 
                 let emote: EmoteElement = payload.into();
                 let id = emote.id.clone();
@@ -133,7 +133,7 @@ impl TransportBridge {
                 renderer
                     .process_emote(emote)
                     .await
-                    .map_err(|e| BridgeError::RenderError(e.to_string()))?;
+                    .map_err(|e| BridgeError::Render(e.to_string()))?;
 
                 if let Some(ref tx) = self.event_tx {
                     let _ = tx.send(BridgeEvent::MessageProcessed(id));
@@ -191,13 +191,13 @@ pub struct BridgeStatus {
 #[derive(Debug, thiserror::Error)]
 pub enum BridgeError {
     #[error("Validation error: {0}")]
-    ValidationError(String),
+    Validation(String),
 
     #[error("Render error: {0}")]
-    RenderError(String),
+    Render(String),
 
     #[error("Configuration error: {0}")]
-    ConfigError(String),
+    Config(String),
 }
 
 impl Clone for TransportBridge {

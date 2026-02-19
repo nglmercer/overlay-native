@@ -134,10 +134,10 @@ async fn test_application_startup() -> Result<(), Box<dyn std::error::Error>> {
         let platform_manager = Arc::new(RwLock::new(PlatformManager::new()));
 
         println!("   🔄 Creating emote system...");
-        let emote_system = Arc::new(RwLock::new(EmoteSystem::new(config.emotes.clone())));
+        let _emote_system = Arc::new(RwLock::new(EmoteSystem::new(config.emotes.clone())));
 
         println!("   🔄 Creating mapping system...");
-        let mapping_system = Arc::new(RwLock::new(MappingSystem::default()));
+        let _mapping_system = Arc::new(RwLock::new(MappingSystem::default()));
 
         // Verify all components are created
         assert!(platform_manager
@@ -384,6 +384,7 @@ async fn test_application_shutdown() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Utility function to simulate main application loop with timeout
+#[allow(dead_code)]
 async fn simulate_main_loop_with_timeout() -> Result<(), Box<dyn std::error::Error>> {
     let timeout = time::timeout(Duration::from_secs(30), async {
         let mut manager = PlatformManager::new();

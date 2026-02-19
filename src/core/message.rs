@@ -250,7 +250,6 @@ pub enum EmoteSource {
     Local,
 }
 
-
 impl std::fmt::Display for EmoteSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

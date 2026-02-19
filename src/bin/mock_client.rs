@@ -283,7 +283,8 @@ fn generate_random_badges() -> Vec<overlay_native::transport::BadgePayload> {
             id: "subscriber".to_string(),
             name: format!("{} Month Subscriber", months),
             url: Some(
-                "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/2".to_string(),
+                "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/2"
+                    .to_string(),
             ),
             title: Some(format!("{} month subscriber", months)),
         });

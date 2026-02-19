@@ -2,11 +2,10 @@
 //!
 //! These tests verify the system handles unusual inputs and error conditions gracefully
 
-use async_trait::async_trait;
 use overlay_native::config::EmoteConfig;
 use overlay_native::connection::{Emote, EmoteMetadata, EmoteSource, TextPosition};
 use overlay_native::emotes::*;
-use std::collections::HashMap;
+use overlay_native::emotes::parser::EmoteInfo;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -105,7 +104,7 @@ fn create_test_config() -> EmoteConfig {
 
 #[tokio::test]
 async fn test_empty_inputs() {
-    let mut parser = EmoteParser::new();
+    let parser = EmoteParser::new();
     let mut cache = EmoteCache::new(24);
 
     // Test parser with empty inputs
@@ -136,7 +135,7 @@ async fn test_empty_inputs() {
 
 #[tokio::test]
 async fn test_malformed_emote_data() {
-    let mut parser = EmoteParser::new();
+    let parser = EmoteParser::new();
 
     // Test malformed Twitch emote data
     let malformed_cases = vec![
@@ -172,7 +171,7 @@ async fn test_unicode_and_special_characters() {
         EmoteInfo {
             id: "unicode1".to_string(),
             name: "😀".to_string(),
-            source: EmoteSource::BTTV,
+            source: EmoteSource::Bttv,
             url: None,
             is_animated: false,
             width: None,
@@ -182,7 +181,7 @@ async fn test_unicode_and_special_characters() {
         EmoteInfo {
             id: "unicode2".to_string(),
             name: "ñ_test".to_string(),
-            source: EmoteSource::FFZ,
+            source: EmoteSource::Ffz,
             url: None,
             is_animated: false,
             width: None,
@@ -357,7 +356,7 @@ async fn test_cache_edge_cases() {
     let emote2 = Emote {
         id: "2".to_string(),
         name: "Emote2".to_string(),
-        source: EmoteSource::BTTV,
+        source: EmoteSource::Bttv,
         positions: vec![TextPosition { start: 0, end: 5 }],
         url: None,
         is_animated: false,

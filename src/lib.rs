@@ -52,6 +52,9 @@
 //! transport layer. Messages are validated, normalized, and rendered
 //! using the platform-specific render layer.
 
+// Allow dead code for modules that provide APIs for future use
+#![allow(dead_code)]
+
 // Core modules - platform-agnostic
 pub mod config;
 pub mod core;

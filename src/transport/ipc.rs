@@ -214,7 +214,7 @@ async fn handle_named_pipe_connection(
                     let _ = writer.write_all(ack.as_bytes()).await;
                 }
 
-                if let Err(e) = event_tx.send(WsEvent::Message(msg)) {
+                if let Err(e) = event_tx.send(WsEvent::Message(Box::new(msg))) {
                     eprintln!("[IPC] Error reenviando mensaje: {}", e);
                     break;
                 }

@@ -290,4 +290,5 @@ impl Clone for CoreRenderer {
 }
 
 // Re-export for convenience
+#[allow(unused_imports)]
 pub use super::message::{Badge, Emote, TextPosition};

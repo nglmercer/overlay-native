@@ -218,7 +218,6 @@ pub enum EmoteSize {
     ExtraLarge,
 }
 
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct LoggingConfig {
     pub level: LogLevel,
@@ -277,11 +276,10 @@ pub enum LogLevel {
 
 impl Config {
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
-        let content =
-            fs::read_to_string(path).map_err(|e| ConfigError::FileError(e.to_string()))?;
+        let content = fs::read_to_string(path).map_err(|e| ConfigError::File(e.to_string()))?;
 
         let config: Config =
-            serde_json::from_str(&content).map_err(|e| ConfigError::ParseError(e.to_string()))?;
+            serde_json::from_str(&content).map_err(|e| ConfigError::Parse(e.to_string()))?;
 
         config.validate()?;
 
@@ -335,9 +333,9 @@ impl Config {
         self.validate()?;
 
         let content = serde_json::to_string_pretty(self)
-            .map_err(|e| ConfigError::SerializeError(e.to_string()))?;
+            .map_err(|e| ConfigError::Serialize(e.to_string()))?;
 
-        fs::write(path, content).map_err(|e| ConfigError::FileError(e.to_string()))?;
+        fs::write(path, content).map_err(|e| ConfigError::File(e.to_string()))?;
 
         Ok(())
     }
@@ -408,7 +406,7 @@ impl Config {
         let transport_enabled = self.transport.websocket_enabled || self.transport.ipc_enabled;
 
         if !has_enabled_connection && !transport_enabled {
-            return Err(ConfigError::ValidationError(
+            return Err(ConfigError::Validation(
                 "At least one connection must be enabled OR transport must be enabled".to_string(),
             ));
         }
@@ -416,7 +414,7 @@ impl Config {
         // Validar que todas las conexiones referenciadas existan en plataformas
         for conn in &self.connections {
             if !self.platforms.contains_key(&conn.platform) {
-                return Err(ConfigError::ValidationError(format!(
+                return Err(ConfigError::Validation(format!(
                     "Connection '{}' references non-existent platform '{}'",
                     conn.id, conn.platform
                 )));
@@ -425,13 +423,13 @@ impl Config {
 
         // Validar configuraciones de ventana
         if self.window.message_duration_seconds == 0 {
-            return Err(ConfigError::ValidationError(
+            return Err(ConfigError::Validation(
                 "message_duration_seconds must be greater than 0".to_string(),
             ));
         }
 
         if self.window.max_windows == 0 {
-            return Err(ConfigError::ValidationError(
+            return Err(ConfigError::Validation(
                 "max_windows must be greater than 0".to_string(),
             ));
         }
@@ -495,19 +493,19 @@ impl Default for Config {
 
 #[derive(Debug)]
 pub enum ConfigError {
-    FileError(String),
-    ParseError(String),
-    SerializeError(String),
-    ValidationError(String),
+    File(String),
+    Parse(String),
+    Serialize(String),
+    Validation(String),
 }
 
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConfigError::FileError(msg) => write!(f, "File error: {}", msg),
-            ConfigError::ParseError(msg) => write!(f, "Parse error: {}", msg),
-            ConfigError::SerializeError(msg) => write!(f, "Serialize error: {}", msg),
-            ConfigError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
+            ConfigError::File(msg) => write!(f, "File error: {}", msg),
+            ConfigError::Parse(msg) => write!(f, "Parse error: {}", msg),
+            ConfigError::Serialize(msg) => write!(f, "Serialize error: {}", msg),
+            ConfigError::Validation(msg) => write!(f, "Validation error: {}", msg),
         }
     }
 }

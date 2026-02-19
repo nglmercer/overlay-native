@@ -447,7 +447,10 @@ impl MessageTransformer {
                     UserLevel::Staff | UserLevel::Admin | UserLevel::GlobalModerator,
                     UserLevel::Staff
                 )
-                | (UserLevel::Admin | UserLevel::GlobalModerator, UserLevel::Admin)
+                | (
+                    UserLevel::Admin | UserLevel::GlobalModerator,
+                    UserLevel::Admin
+                )
                 | (UserLevel::GlobalModerator, UserLevel::GlobalModerator)
         )
     }

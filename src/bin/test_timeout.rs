@@ -105,7 +105,7 @@ async fn test_platform_manager_init() -> Result<(), Box<dyn std::error::Error>> 
 /// Test that message reception times out properly
 async fn test_message_timeout() -> Result<(), Box<dyn std::error::Error>> {
     let timeout = time::timeout(Duration::from_secs(10), async {
-        let mut manager = PlatformManager::new();
+        let _manager = PlatformManager::new();
 
         // Since next_message() uses an unbounded channel that waits forever,
         // we need to test it differently. We'll test that we can create the manager
@@ -192,6 +192,7 @@ async fn test_connection_management() -> Result<(), Box<dyn std::error::Error>> 
 }
 
 /// Additional utility to test specific timeout scenarios
+#[allow(dead_code)]
 async fn test_specific_scenario(scenario: &str) -> Result<(), Box<dyn std::error::Error>> {
     match scenario {
         "websocket" => test_websocket_timeout().await,
@@ -201,6 +202,7 @@ async fn test_specific_scenario(scenario: &str) -> Result<(), Box<dyn std::error
 }
 
 /// Test WebSocket timeout scenario
+#[allow(dead_code)]
 async fn test_websocket_timeout() -> Result<(), Box<dyn std::error::Error>> {
     println!("   🔄 Testing WebSocket timeout scenario...");
     // This would test WebSocket-specific timeout behavior
@@ -211,6 +213,7 @@ async fn test_websocket_timeout() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Test multiple connections timeout scenario
+#[allow(dead_code)]
 async fn test_multiple_connections_timeout() -> Result<(), Box<dyn std::error::Error>> {
     println!("   🔄 Testing multiple connections timeout scenario...");
     // This would test handling multiple connections with timeouts

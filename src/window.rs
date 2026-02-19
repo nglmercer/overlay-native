@@ -216,7 +216,6 @@ async fn load_emote_(
 /// Get the monitor geometry of a given monitor, or the default if none is given
 pub fn get_gdk_monitor() -> Monitor {
     let display = gdk::Display::default().expect("could not get default display");
-    
 
     display
             .primary_monitor()
@@ -264,15 +263,13 @@ impl std::fmt::Display for AnchorPoint {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub enum AnchorAlignment {
     #[default]
     Start,
     Center,
     End,
 }
-
 
 impl AnchorAlignment {
     pub fn alignment_to_coordinate(&self, size_inner: i32, size_container: i32) -> i32 {
