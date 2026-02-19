@@ -4,8 +4,8 @@
 
 use overlay_native::config;
 use overlay_native::connection::{Emote, EmoteMetadata, EmoteSource, TextPosition};
-use overlay_native::emotes::*;
 use overlay_native::emotes::parser::EmoteInfo;
+use overlay_native::emotes::*;
 
 use tempfile::TempDir;
 use tokio::time::{sleep, Duration};

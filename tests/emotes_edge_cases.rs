@@ -4,8 +4,8 @@
 
 use overlay_native::config::EmoteConfig;
 use overlay_native::connection::{Emote, EmoteMetadata, EmoteSource, TextPosition};
-use overlay_native::emotes::*;
 use overlay_native::emotes::parser::EmoteInfo;
+use overlay_native::emotes::*;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;

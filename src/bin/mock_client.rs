@@ -11,9 +11,7 @@ use gtk::gdk;
 #[cfg(unix)]
 use gtk::prelude::*;
 
-use overlay_native::core::{
-    ChatMessageElement, CoreRenderer, GiftElement, OverlayElement,
-};
+use overlay_native::core::{ChatMessageElement, CoreRenderer, GiftElement, OverlayElement};
 use overlay_native::render::{PlatformWindow, WindowConfig};
 use overlay_native::transport::{
     ChatMessagePayload, EmotePayload, EmotePosition, GiftPayload, GiftType as TransportGiftType,
@@ -428,7 +426,7 @@ fn main() {
     // Get monitor geometry for window positioning
     let monitor_width: i32;
     let monitor_height: i32;
-    
+
     #[cfg(unix)]
     {
         let display = gdk::Display::default().expect("No default display");
@@ -496,7 +494,10 @@ fn main() {
 
         match message {
             IncomingMessage::ChatMessage(payload) => {
-                print!("💬 [{}/{}] {}: {}", i, num_messages, payload.username, payload.content);
+                print!(
+                    "💬 [{}/{}] {}: {}",
+                    i, num_messages, payload.username, payload.content
+                );
                 if !payload.emotes.is_empty() {
                     print!(" (+{} emotes)", payload.emotes.len());
                 }
@@ -529,14 +530,19 @@ fn main() {
                 // Process through core renderer
                 let renderer_clone = renderer.clone();
                 let element = OverlayElement::ChatMessage(core_message);
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(async {
-                        let _ = renderer_clone.write().await.queue_element(element.clone()).await;
-                    });
+                tokio::runtime::Runtime::new().unwrap().block_on(async {
+                    let _ = renderer_clone
+                        .write()
+                        .await
+                        .queue_element(element.clone())
+                        .await;
+                });
             }
             IncomingMessage::Gift(payload) => {
-                println!("🎁 [{}/{}] Gift: {} -> {:?}", i, num_messages, payload.from_user, payload.to_user);
+                println!(
+                    "🎁 [{}/{}] Gift: {} -> {:?}",
+                    i, num_messages, payload.from_user, payload.to_user
+                );
 
                 // Convert to core gift element
                 let gift_element: GiftElement = payload.into();
@@ -562,32 +568,49 @@ fn main() {
                 // Process through core renderer
                 let renderer_clone = renderer.clone();
                 let element = OverlayElement::Gift(gift_element);
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(async {
-                        let _ = renderer_clone.write().await.queue_element(element.clone()).await;
-                    });
+                tokio::runtime::Runtime::new().unwrap().block_on(async {
+                    let _ = renderer_clone
+                        .write()
+                        .await
+                        .queue_element(element.clone())
+                        .await;
+                });
             }
             _ => {}
         }
 
-        // Process GTK events to show window immediately after creation
-        #[cfg(unix)]
-        {
-            // Show the window and process GTK events
-            for _ in 0..10 {
-                gtk::main_iteration_do(false);
-                std::thread::sleep(Duration::from_millis(16)); // ~60fps
-            }
-        }
-        
         // Small delay between messages (simulating real-time chat)
         let delay = rng.gen_range(500..1500);
-        std::thread::sleep(Duration::from_millis(delay));
+
+        // Process GTK events continuously during the delay to keep windows responsive
+        // Also update progress bars for active windows
+        let delay_start = Instant::now();
+        let window_duration = Duration::from_secs(10);
+
+        while delay_start.elapsed() < Duration::from_millis(delay) {
+            #[cfg(unix)]
+            {
+                gtk::main_iteration_do(false);
+
+                // Update progress bars for all active windows
+                for (_id, window, created) in active_windows.iter_mut() {
+                    let window_elapsed = created.elapsed();
+                    if window_elapsed < window_duration {
+                        let remaining = window_duration - window_elapsed;
+                        let progress = remaining.as_secs_f64() / window_duration.as_secs_f64();
+                        window.set_progress(progress);
+                    }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(16)); // ~60fps
+        }
     }
 
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("\n✅ {} windows displayed! Closing in 10s...", active_windows.len());
+    println!(
+        "\n✅ {} windows displayed! Closing in 10s...",
+        active_windows.len()
+    );
 
     // Keep the application running to show the windows
     #[cfg(unix)]
@@ -600,15 +623,13 @@ fn main() {
             gtk::main_iteration_do(false);
             std::thread::sleep(Duration::from_millis(16));
 
-            let elapsed = start_time.elapsed();
-            
             // Update progress bars for all active windows
             // We need to rebuild the vector with mutable windows
             let mut to_close: Vec<String> = Vec::new();
-            
+
             for (id, window, created) in active_windows.iter_mut() {
                 let window_elapsed = created.elapsed();
-                
+
                 if window_elapsed >= duration {
                     // Window expired
                     to_close.push(id.clone());
@@ -619,7 +640,7 @@ fn main() {
                     window.set_progress(progress);
                 }
             }
-            
+
             // Close expired windows
             for id in &to_close {
                 println!("   🔒 Closing expired window: {}", id);
@@ -664,10 +685,7 @@ fn main() {
         }
     });
 
-    println!(
-        "\n{}",
-        serde_json::to_string_pretty(&example_json).unwrap()
-    );
+    println!("\n{}", serde_json::to_string_pretty(&example_json).unwrap());
 }
 
 #[cfg(test)]
