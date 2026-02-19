@@ -220,7 +220,7 @@ async fn test_unicode_and_special_characters() {
 
 #[tokio::test]
 async fn test_extremely_large_inputs() {
-    let mut parser = EmoteParser::new();
+    let parser = EmoteParser::new();
     let mut cache = EmoteCache::new(24);
 
     // Test very long message (1MB)

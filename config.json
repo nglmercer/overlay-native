@@ -1,147 +1,21 @@
 {
-  "platforms": {
-    "twitch": {
-      "platform_type": "twitch",
-      "enabled": true,
-      "credentials": {
-        "username": null,
-        "oauth_token": null,
-        "client_id": null,
-        "client_secret": null,
-        "token": null
-      },
-      "settings": {
-        "max_reconnect_attempts": 5,
-        "reconnect_delay_ms": 5000,
-        "message_buffer_size": 1000,
-        "enable_emotes": true,
-        "enable_badges": true,
-        "custom_settings": {}
-      }
-    },
-    "youtube": {
-      "platform_type": "youtube",
-      "enabled": false,
-      "credentials": {
-        "username": null,
-        "oauth_token": null,
-        "client_id": "YOUR_YOUTUBE_CLIENT_ID",
-        "client_secret": "YOUR_YOUTUBE_CLIENT_SECRET",
-        "token": null
-      },
-      "settings": {
-        "max_reconnect_attempts": 3,
-        "reconnect_delay_ms": 3000,
-        "message_buffer_size": 500,
-        "enable_emotes": true,
-        "enable_badges": false,
-        "custom_settings": {
-          "api_key": "YOUR_YOUTUBE_API_KEY"
-        }
-      }
-    },
-    "kick": {
-      "platform_type": "kick",
-      "enabled": true,
-      "credentials": {
-        "username": null,
-        "oauth_token": null,
-        "client_id": null,
-        "client_secret": null,
-        "token": null
-      },
-      "settings": {
-        "max_reconnect_attempts": 3,
-        "reconnect_delay_ms": 4000,
-        "message_buffer_size": 800,
-        "enable_emotes": true,
-        "enable_badges": true,
-        "custom_settings": {}
-      }
-    }
+  "platforms": {},
+  "connections": [],
+  "transport": {
+    "websocket_enabled": true,
+    "websocket_bind": "127.0.0.1:9001",
+    "ipc_enabled": true,
+    "ipc_socket_path": "/tmp/overlay-native.sock",
+    "max_connections": 100,
+    "strict_validation": true
   },
-  "connections": [
-    {
-      "id": "twitch_main",
-      "platform": "twitch",
-      "channel": "bobicraftmc",
-      "enabled": true,
-      "filters": {
-        "min_message_length": null,
-        "max_message_length": 500,
-        "blocked_users": ["spamuser123", "bot_example"],
-        "allowed_users": [],
-        "blocked_words": ["spam", "advertisement"],
-        "commands_only": false,
-        "subscribers_only": false,
-        "vip_only": false
-      },
-      "display_name": "Main Twitch Chat"
-    },
-    {
-      "id": "twitch_secondary",
-      "platform": "twitch",
-      "channel": "apika_luca",
-      "enabled": false,
-      "filters": {
-        "min_message_length": 1,
-        "max_message_length": 300,
-        "blocked_users": [],
-        "allowed_users": ["moderator_user"],
-        "blocked_words": [],
-        "commands_only": false,
-        "subscribers_only": false,
-        "vip_only": false
-      },
-      "display_name": "Secondary Twitch Chat"
-    },
-    {
-      "id": "youtube_main",
-      "platform": "youtube",
-      "channel": "CHANNEL_ID_HERE",
-      "enabled": false,
-      "filters": {
-        "min_message_length": null,
-        "max_message_length": 200,
-        "blocked_users": [],
-        "allowed_users": [],
-        "blocked_words": [],
-        "commands_only": false,
-        "subscribers_only": false,
-        "vip_only": false
-      },
-      "display_name": "YouTube Live Chat"
-    },
-    {
-      "id": "kick_main",
-      "platform": "kick",
-      "channel": "spreen",
-      "enabled": true,
-      "filters": {
-        "min_message_length": null,
-        "max_message_length": 400,
-        "blocked_users": [],
-        "allowed_users": [],
-        "blocked_words": [],
-        "commands_only": false,
-        "subscribers_only": false,
-        "vip_only": false
-      },
-      "display_name": "Kick Chat"
-    }
-  ],
   "window": {
     "message_duration_seconds": 10,
     "max_windows": 100,
-    "test_message": "TEST MESSAGE",
+    "test_message": "TEST",
     "animation_enabled": true,
     "fade_in_duration_ms": 300,
-    "fade_out_duration_ms": 500,
-    "random": false,
-    "default": {
-      "x": "50",
-      "y": "50"
-    }
+    "fade_out_duration_ms": 500
   },
   "display": {
     "monitor_margin": 40,

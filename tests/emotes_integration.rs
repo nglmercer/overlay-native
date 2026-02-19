@@ -5,6 +5,7 @@
 use overlay_native::config;
 use overlay_native::connection::{Emote, EmoteMetadata, EmoteSource, TextPosition};
 use overlay_native::emotes::*;
+use overlay_native::emotes::parser::EmoteInfo;
 
 use tempfile::TempDir;
 use tokio::time::{sleep, Duration};
@@ -58,8 +59,8 @@ impl EmoteProvider for MockEmoteProvider {
 
     async fn get_channel_emotes(
         &self,
-        platform: &str,
-        channel: &str,
+        _platform: &str,
+        _channel: &str,
     ) -> Result<Vec<EmoteData>, EmoteError> {
         // Return emotes for any platform (simplified for testing)
         Ok(self.emotes.clone())
@@ -177,7 +178,7 @@ async fn test_emote_parser_functionality() {
         EmoteInfo {
             id: "bttv_123".to_string(),
             name: "FeelsBadMan".to_string(),
-            source: EmoteSource::BTTV,
+            source: EmoteSource::Bttv,
             url: Some("https://cdn.betterttv.net/emote/123/3x".to_string()),
             is_animated: false,
             width: Some(28),
@@ -187,7 +188,7 @@ async fn test_emote_parser_functionality() {
         EmoteInfo {
             id: "ffz_456".to_string(),
             name: "LUL".to_string(),
-            source: EmoteSource::FFZ,
+            source: EmoteSource::Ffz,
             url: Some("https://cdn.frankerfacez.com/emote/456/4".to_string()),
             is_animated: false,
             width: Some(32),
@@ -207,20 +208,20 @@ async fn test_emote_parser_functionality() {
 
     // Register known third-party emotes for testing
     parser.register_known_emotes(vec![
-        overlay_native::emotes::EmoteInfo {
+        EmoteInfo {
             id: "bttv123".to_string(),
             name: "FeelsBadMan".to_string(),
-            source: EmoteSource::BTTV,
+            source: EmoteSource::Bttv,
             url: None,
             is_animated: false,
             width: None,
             height: None,
             is_zero_width: false,
         },
-        overlay_native::emotes::EmoteInfo {
+        EmoteInfo {
             id: "ffz456".to_string(),
             name: "LUL".to_string(),
-            source: EmoteSource::FFZ,
+            source: EmoteSource::Ffz,
             url: None,
             is_animated: false,
             width: None,
@@ -234,9 +235,9 @@ async fn test_emote_parser_functionality() {
     let third_party_emotes = parser.detect_third_party_emotes(third_party_message);
     assert_eq!(third_party_emotes.len(), 2);
     assert_eq!(third_party_emotes[0].name, "FeelsBadMan");
-    assert_eq!(third_party_emotes[0].source, EmoteSource::BTTV);
+    assert_eq!(third_party_emotes[0].source, EmoteSource::Bttv);
     assert_eq!(third_party_emotes[1].name, "LUL");
-    assert_eq!(third_party_emotes[1].source, EmoteSource::FFZ);
+    assert_eq!(third_party_emotes[1].source, EmoteSource::Ffz);
 
     // Test position finding
     let text = "Hello Kappa world Kappa";
@@ -292,7 +293,7 @@ async fn test_emote_renderer_functionality() {
     let bttv_emote = Emote {
         id: "5e7c3560b4d743c5830f0ae4".to_string(),
         name: "FeelsBadMan".to_string(),
-        source: EmoteSource::BTTV,
+        source: EmoteSource::Bttv,
         positions: vec![TextPosition { start: 0, end: 10 }],
         url: None,
         is_animated: false,
@@ -376,8 +377,8 @@ async fn test_emote_system_with_third_party_providers() {
 
     // Test source mapping
     let sources: Vec<_> = emotes.iter().map(|e| &e.source).collect();
-    assert!(sources.contains(&&EmoteSource::BTTV));
-    assert!(sources.contains(&&EmoteSource::FFZ));
+    assert!(sources.contains(&&EmoteSource::Bttv));
+    assert!(sources.contains(&&EmoteSource::Ffz));
 }
 
 #[tokio::test]
@@ -428,9 +429,9 @@ async fn test_emote_system_preloading() {
 
     // Cache may or may not contain global emotes depending on network availability
     // Just verify the system handled it gracefully
-    let stats = emote_system.cache.stats();
+    let _stats = emote_system.cache.stats();
     // Accept both scenarios: cache populated (network success) or empty (network failure)
-    assert!(stats.size >= 0);
+    // stats.size is always >= 0 since it's a usize
 }
 
 #[tokio::test]
@@ -646,7 +647,7 @@ fn test_emote_source_filtering() {
     let bttv_emote = Emote {
         id: "2".to_string(),
         name: "FeelsBadMan".to_string(),
-        source: EmoteSource::BTTV,
+        source: EmoteSource::Bttv,
         positions: vec![TextPosition { start: 0, end: 10 }],
         url: None,
         is_animated: false,
@@ -663,10 +664,10 @@ fn test_emote_source_filtering() {
     assert_eq!(twitch_emotes.len(), 1);
     assert_eq!(twitch_emotes[0].name, "Kappa");
 
-    let bttv_emotes = cache.get_by_source(&EmoteSource::BTTV);
+    let bttv_emotes = cache.get_by_source(&EmoteSource::Bttv);
     assert_eq!(bttv_emotes.len(), 1);
     assert_eq!(bttv_emotes[0].name, "FeelsBadMan");
 
-    let ffz_emotes = cache.get_by_source(&EmoteSource::FFZ);
+    let ffz_emotes = cache.get_by_source(&EmoteSource::Ffz);
     assert!(ffz_emotes.is_empty());
 }
