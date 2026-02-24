@@ -49,7 +49,7 @@ impl Win32Window {
 
             REGISTER_CLASS.call_once(|| {
                 let wc = WNDCLASSW {
-                    style: CS_HREDRAW | CS_VREDRAW,
+                    style: 0, // Removed CS_HREDRAW | CS_VREDRAW to prevent flickering
                     lpfnWndProc: Some(window_proc),
                     cbClsExtra: 0,
                     cbWndExtra: 0,
@@ -139,7 +139,22 @@ impl PlatformWindow for Win32Window {
             if !data_ptr.is_null() {
                 (*data_ptr).progress = progress;
             }
-            InvalidateRect(self.hwnd, null_mut(), 0);
+            // Only redraw the progress bar area instead of entire window to prevent flickering
+            let mut rect = RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
+            GetClientRect(self.hwnd, &mut rect);
+            let progress_height = 4i32;
+            let rect_to_invalidate = RECT {
+                left: 0,
+                top: rect.bottom - progress_height - 4,
+                right: rect.right,
+                bottom: rect.bottom,
+            };
+            InvalidateRect(self.hwnd, &rect_to_invalidate, 0);
         }
     }
 
@@ -151,6 +166,8 @@ impl PlatformWindow for Win32Window {
         unsafe {
             let data_ptr = GetWindowLongPtrW(self.hwnd, GWLP_USERDATA) as *mut WindowData;
             if !data_ptr.is_null() {
+                // Clear the user data pointer first to prevent double-free
+                SetWindowLongPtrW(self.hwnd, GWLP_USERDATA, 0);
                 let _ = Box::from_raw(data_ptr);
             }
             DestroyWindow(self.hwnd);
@@ -168,24 +185,155 @@ fn wide_string(s: &str) -> Vec<u16> {
 }
 
 /// Parse a hex color string (#RRGGBB or #RGB) to RGB values
+/// Also handles simple rgba() and rgb() formats
 fn parse_hex_color(color: &str) -> (u8, u8, u8) {
     let hex = color.trim_start_matches('#');
+    
+    // Handle rgb() and rgba() formats
+    if hex.starts_with("rgb") || hex.starts_with("rgba") {
+        // Parse rgb(r, g, b) or rgba(r, g, b, a)
+        if let Some(hex_part) = hex.strip_prefix("rgba(") {
+            if let Some(parts) = hex_part.strip_suffix(")") {
+                let nums: Vec<&str> = parts.split(',').collect();
+                if nums.len() >= 3 {
+                    if let (Ok(r), Ok(g), Ok(b)) = (
+                        nums[0].trim().parse::<u8>(),
+                        nums[1].trim().parse::<u8>(),
+                        nums[2].trim().parse::<u8>()
+                    ) {
+                        return (r, g, b);
+                    }
+                }
+            }
+        } else if let Some(hex_part) = hex.strip_prefix("rgb(") {
+            if let Some(parts) = hex_part.strip_suffix(")") {
+                let nums: Vec<&str> = parts.split(',').collect();
+                if nums.len() >= 3 {
+                    if let (Ok(r), Ok(g), Ok(b)) = (
+                        nums[0].trim().parse::<u8>(),
+                        nums[1].trim().parse::<u8>(),
+                        nums[2].trim().parse::<u8>()
+                    ) {
+                        return (r, g, b);
+                    }
+                }
+            }
+        }
+        // Default dark gray for rgba/rgb parsing failures
+        return (30, 30, 30);
+    }
+    
+    // Handle linear-gradient - return a special marker for gradient handling
+    if hex.contains("linear-gradient") {
+        // Return dark gray - gradient will be handled separately
+        return (30, 30, 30);
+    }
+    
     match hex.len() {
         3 => {
             // #RGB format
-            let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).unwrap_or(255);
-            let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).unwrap_or(255);
-            let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).unwrap_or(255);
+            let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).unwrap_or(30);
+            let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).unwrap_or(30);
+            let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).unwrap_or(30);
             (r, g, b)
         }
         6 => {
             // #RRGGBB format
-            let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(255);
-            let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(255);
-            let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(255);
+            let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(30);
+            let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(30);
+            let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(30);
             (r, g, b)
         }
-        _ => (255, 255, 255), // Default white
+        _ => (30, 30, 30), // Default dark gray for unknown formats
+    }
+}
+
+/// Check if a color string is a linear gradient
+fn is_linear_gradient(color: &str) -> bool {
+    color.contains("linear-gradient")
+}
+
+/// Parse linear-gradient and return (start_color, end_color, angle)
+/// Returns None if parsing fails
+fn parse_linear_gradient(color: &str) -> Option<((u8, u8, u8), (u8, u8, u8), i32)> {
+    // Look for the gradient pattern: linear-gradient(Xdeg, #COLOR1, #COLOR2)
+    if !color.contains("linear-gradient") {
+        return None;
+    }
+    
+    // Extract the content between parentheses
+    let start = color.find('(')?;
+    let end = color.rfind(')')?;
+    let gradient_content = &color[start+1..end];
+    
+    // Parse angle if present (e.g., "135deg,")
+    let mut angle = 135; // Default diagonal
+    let mut colors_part = gradient_content;
+    
+    if let Some(deg_pos) = gradient_content.find("deg") {
+        let angle_str = &gradient_content[..deg_pos];
+        // Find the last number before "deg"
+        if let Some(comma_pos) = angle_str.rfind(',') {
+            let num_str = angle_str[comma_pos+1..].trim();
+            if let Ok(a) = num_str.parse::<i32>() {
+                angle = a;
+            }
+        }
+        // Find where the colors start
+        if let Some(colors_start) = gradient_content.find(',') {
+            colors_part = &gradient_content[colors_start+1..];
+        }
+    }
+    
+    // Extract color values - handle colors with optional percentage like "#1a1a1a 0%"
+    let mut colors: Vec<(u8, u8, u8)> = Vec::new();
+    
+    // Find all hex colors (#RRGGBB or #RGB) and extract just the hex part (before any percentage)
+    let mut search_idx = 0;
+    while let Some(hash_pos) = colors_part[search_idx..].find('#') {
+        let absolute_pos = search_idx + hash_pos;
+        let hex_part = &colors_part[absolute_pos+1..];
+        
+        // Extract hex color - handle formats like #RRGGBB, #RRGGBB 0%, #RGB
+        let mut hex_len = 0;
+        for (i, c) in hex_part.char_indices() {
+            if c.is_ascii_hexdigit() {
+                hex_len = i + 1;
+                if hex_len >= 6 {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        
+        if hex_len >= 6 {
+            let hex6 = &hex_part[..6];
+            if let (Ok(r), Ok(g), Ok(b)) = (
+                u8::from_str_radix(&hex6[0..2], 16),
+                u8::from_str_radix(&hex6[2..4], 16),
+                u8::from_str_radix(&hex6[4..6], 16)
+            ) {
+                colors.push((r, g, b));
+            }
+        } else if hex_len >= 3 {
+            let hex3 = &hex_part[..3];
+            let r = u8::from_str_radix(&hex3[0..1].repeat(2), 16).unwrap_or(30);
+            let g = u8::from_str_radix(&hex3[1..2].repeat(2), 16).unwrap_or(30);
+            let b = u8::from_str_radix(&hex3[2..3].repeat(2), 16).unwrap_or(30);
+            colors.push((r, g, b));
+        }
+        
+        search_idx = absolute_pos + 1;
+    }
+    
+    if colors.len() >= 2 {
+        Some((colors[0], colors[1], angle))
+    } else if colors.len() == 1 {
+        // If only one color, use it for both start and end
+        Some((colors[0], colors[0], angle))
+    } else {
+        None
     }
 }
 
@@ -221,9 +369,11 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: usize, lpara
         WM_DESTROY => {
             let data_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut WindowData;
             if !data_ptr.is_null() {
-                let _ = Box::from_raw(data_ptr);
+                // Clear the user data pointer first to prevent double-free
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+                let _ = Box::from_raw(data_ptr);
             }
+            PostQuitMessage(0);
             0
         }
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),
@@ -242,13 +392,40 @@ unsafe fn render_content(hdc: HDC, rect: &RECT, hwnd: HWND) {
     let width = rect.right - rect.left;
     let height = rect.bottom - rect.top;
 
-    // Get style properties with defaults
-    let bg_color = alert
-        .style
-        .background_color
-        .as_ref()
-        .map(|c| parse_hex_color(c))
-        .unwrap_or((40, 40, 40)); // Default dark gray
+    // Draw background - check for gradient first, then solid color
+    let bg_color_str = alert.style.background_color.as_deref();
+    
+    if let Some(color_str) = bg_color_str {
+        if is_linear_gradient(color_str) {
+            // Parse gradient colors - use average of both colors as solid fallback
+            if let Some((start_color, end_color, _angle)) = parse_linear_gradient(color_str) {
+                // Use blended color as solid fallback
+                let r = ((start_color.0 as u16 + end_color.0 as u16) / 2) as u8;
+                let g = ((start_color.1 as u16 + end_color.1 as u16) / 2) as u8;
+                let b = ((start_color.2 as u16 + end_color.2 as u16) / 2) as u8;
+                let bg_brush = CreateSolidBrush(RGB(r, g, b));
+                FillRect(hdc, rect, bg_brush);
+                DeleteObject(bg_brush as *mut _);
+            } else {
+                // Fallback to solid color if parsing fails
+                let bg_color = parse_hex_color(color_str);
+                let bg_brush = CreateSolidBrush(RGB(bg_color.0, bg_color.1, bg_color.2));
+                FillRect(hdc, rect, bg_brush);
+                DeleteObject(bg_brush as *mut _);
+            }
+        } else {
+            // Solid color
+            let bg_color = parse_hex_color(color_str);
+            let bg_brush = CreateSolidBrush(RGB(bg_color.0, bg_color.1, bg_color.2));
+            FillRect(hdc, rect, bg_brush);
+            DeleteObject(bg_brush as *mut _);
+        }
+    } else {
+        // Default dark gray background when no color is specified
+        let bg_brush = CreateSolidBrush(RGB(30, 30, 30));
+        FillRect(hdc, rect, bg_brush);
+        DeleteObject(bg_brush as *mut _);
+    }
     
     let border_color = alert
         .style
@@ -257,11 +434,6 @@ unsafe fn render_content(hdc: HDC, rect: &RECT, hwnd: HWND) {
         .map(|c| parse_hex_color(c));
     
     let _border_radius = alert.style.border_radius.unwrap_or(8);
-
-    // Draw background with rounded corners (simplified - just fill rect)
-    let bg_brush = CreateSolidBrush(RGB(bg_color.0, bg_color.1, bg_color.2));
-    FillRect(hdc, rect, bg_brush);
-    DeleteObject(bg_brush as *mut _);
 
     // Draw border if specified
     if let Some(bc) = border_color {
