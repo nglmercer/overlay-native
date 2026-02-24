@@ -14,15 +14,19 @@ path = "src/lib.rs"
 name = "overlay-native"
 path = "src/main.rs"
 
-[[bin]]
-name = "test_emotes"
-path = "src/bin/test_emotes.rs"
-
 
 [dependencies]
 
 anyhow = "1.0.83"
-tokio = { version = "1.37.0", features = ["rt-multi-thread", "sync", "fs", "time", "macros", "net", "io-util"] }
+tokio = { version = "1.37.0", features = [
+    "rt-multi-thread",
+    "sync",
+    "fs",
+    "time",
+    "macros",
+    "net",
+    "io-util",
+] }
 rand = "0.8.5"
 reqwest = { version = "0.12.4", features = ["json", "blocking"] }
 image = { version = "0.24", features = ["png", "gif", "webp"] }
@@ -46,7 +50,12 @@ proptest = "1.4.0"
 
 # Windows-specific dependencies
 [target."cfg(windows)".dependencies]
-winapi = { version = "0.3", features = ["winuser", "wingdi", "windef", "libloaderapi"] }
+winapi = { version = "0.3", features = [
+    "winuser",
+    "wingdi",
+    "windef",
+    "libloaderapi",
+] }
 
 # Unix-specific dependencies (GTK)
 [target."cfg(unix)".dependencies]

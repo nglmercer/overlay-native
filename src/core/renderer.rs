@@ -151,7 +151,7 @@ impl CoreRenderer {
                 let badges: Vec<super::message::Badge> = msg.badges.clone();
                 filter.accepts(&msg.content, &msg.username, &badges)
             }
-            OverlayElement::Gift(_) | OverlayElement::Emote(_) => true,
+            OverlayElement::Gift(_) | OverlayElement::Image(_) => true,
         };
 
         if !should_display {
@@ -166,7 +166,7 @@ impl CoreRenderer {
         let element_id = match &element {
             OverlayElement::ChatMessage(msg) => msg.id.clone(),
             OverlayElement::Gift(gift) => gift.id.clone(),
-            OverlayElement::Emote(emote) => emote.id.clone(),
+            OverlayElement::Image(image) => image.id.clone(),
         };
 
         // Check window limit
@@ -226,12 +226,12 @@ impl CoreRenderer {
         self.queue_element(OverlayElement::Gift(gift)).await
     }
 
-    /// Process an emote event
-    pub async fn process_emote(
+    /// Process an image event
+    pub async fn process_image(
         &self,
-        emote: super::message::EmoteElement,
+        image: super::message::ImageElement,
     ) -> Result<String, RenderError> {
-        self.queue_element(OverlayElement::Emote(emote)).await
+        self.queue_element(OverlayElement::Image(image)).await
     }
 
     /// Get all active elements
@@ -291,4 +291,4 @@ impl Clone for CoreRenderer {
 
 // Re-export for convenience
 #[allow(unused_imports)]
-pub use super::message::{Badge, Emote, TextPosition};
+pub use super::message::Badge;

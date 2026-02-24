@@ -1,18 +1,14 @@
 //! Overlay Native - Main Entry Point
 //!
 //! This is the main entry point for the overlay application.
-//! The application is now platform-agnostic and receives messages
+//! The application is platform-agnostic and receives messages
 //! via the transport layer (IPC/WebSocket).
 
 // Allow dead code for code that provides APIs for future use
 #![allow(dead_code)]
 
 mod config;
-mod connection;
 mod core;
-mod emotes;
-mod mapping;
-mod platforms;
 mod render;
 mod transport;
 
@@ -25,73 +21,26 @@ mod windows;
 #[cfg(target_os = "linux")]
 pub mod x11;
 
-#[cfg(target_os = "linux")]
-extern crate gdkx11;
-
-#[cfg(target_os = "linux")]
-extern crate x11rb;
-
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, RwLock};
 
 use anyhow::Result;
 use rand::seq::SliceRandom;
-use tokio::sync::broadcast;
 
 #[cfg(unix)]
 use gtk::prelude::*;
 
-#[cfg(windows)]
-use crate::windows::process_messages;
-
 use crate::config::Config;
-use crate::connection::{ConnectionInfo, PlatformManager};
-use crate::core::CoreRenderer;
-use crate::emotes::EmoteSystem;
-use crate::mapping::MappingSystem;
-use crate::platforms::CredentialManager;
+use crate::core::{CoreRenderer, RenderEvent};
 use crate::render::WindowConfig;
-
-/// Application events for the emitter system
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone)]
-enum AppEvent {
-    MessageReceived(Box<connection::ChatMessage>),
-    WindowUpdate,
-    Shutdown,
-}
-
-/// Event emitter for decoupled communication
-struct EventEmitter {
-    sender: broadcast::Sender<AppEvent>,
-}
-
-impl EventEmitter {
-    fn new() -> Self {
-        let (sender, _) = broadcast::channel(1000);
-        Self { sender }
-    }
-
-    fn emit(&self, event: AppEvent) -> Result<()> {
-        self.sender.send(event)?;
-        Ok(())
-    }
-
-    fn subscribe(&self) -> broadcast::Receiver<AppEvent> {
-        self.sender.subscribe()
-    }
-}
+use crate::transport::{TransportBridge, websocket::WsServer, ipc::IpcServer, websocket::WsConfig, ipc::IpcConfig};
 
 /// Main application state
 struct AppState {
     config: Config,
-    platform_manager: Arc<RwLock<PlatformManager>>,
-    emote_system: Arc<RwLock<EmoteSystem>>,
-    mapping_system: Arc<RwLock<MappingSystem>>,
-    credential_manager: Arc<CredentialManager>,
-    event_emitter: Arc<EventEmitter>,
     core_renderer: Arc<RwLock<CoreRenderer>>,
+    bridge: Arc<TransportBridge>,
 }
 
 impl AppState {
@@ -103,106 +52,16 @@ impl AppState {
         });
 
         println!("[CONFIG] ✅ Configuration loaded successfully");
-        println!(
-            "[CONFIG] Enabled platforms: {:?}",
-            config.get_enabled_platforms()
-        );
 
-        let platform_manager = Arc::new(RwLock::new(PlatformManager::new()));
-        let emote_system = Arc::new(RwLock::new(EmoteSystem::new(config.emotes.clone())));
-        let mapping_system = Arc::new(RwLock::new(MappingSystem::default()));
-        let credential_manager = Arc::new(CredentialManager::new());
-        let event_emitter = Arc::new(EventEmitter::new());
-        let core_renderer = Arc::new(RwLock::new(CoreRenderer::new()));
+        let core_renderer = CoreRenderer::new();
+        let core_renderer_arc = Arc::new(RwLock::new(core_renderer));
+        let bridge = Arc::new(TransportBridge::new(core_renderer_arc.read().await.clone()));
 
         Ok(Self {
             config,
-            platform_manager,
-            emote_system,
-            mapping_system,
-            credential_manager,
-            event_emitter,
-            core_renderer,
+            core_renderer: core_renderer_arc,
+            bridge,
         })
-    }
-
-    async fn start_connections(&self) -> Result<()> {
-        let mut manager = self.platform_manager.write().await;
-        let enabled_connections = self.config.get_enabled_connections();
-
-        println!(
-            "[CONNECTIONS] Starting {} connections",
-            enabled_connections.len()
-        );
-
-        for connection in enabled_connections {
-            println!(
-                "[CONNECTIONS] 🔄 Starting: {} ({})",
-                connection.id, connection.platform
-            );
-
-            manager.add_connection(ConnectionInfo {
-                id: connection.id.clone(),
-                platform: connection.platform.clone(),
-                channel: connection.channel.clone(),
-                enabled: connection.enabled,
-                display_name: connection.display_name.clone(),
-            });
-
-            match manager.start_connection(&connection.id).await {
-                Ok(_) => println!(
-                    "✅ Connected to '{}' on {}",
-                    connection.channel, connection.platform
-                ),
-                Err(e) => eprintln!("❌ Failed to connect to '{}': {}", connection.channel, e),
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn preload_emotes(&self) -> Result<()> {
-        let mut emote_system = self.emote_system.write().await;
-
-        println!("[EMOTES] Preloading global emotes...");
-        match emote_system.preload_global_emotes().await {
-            Ok(_) => println!("[EMOTES] ✅ Global emotes preloaded"),
-            Err(e) => println!("[EMOTES] ⚠️ Failed to preload: {}", e),
-        }
-
-        Ok(())
-    }
-
-    async fn start_message_processor(&self) {
-        let event_emitter = self.event_emitter.clone();
-        let platform_manager = self.platform_manager.clone();
-
-        tokio::spawn(async move {
-            let mut pm = platform_manager.write().await;
-            loop {
-                if let Some(message) = pm.next_message().await {
-                    if let Err(e) = event_emitter.emit(AppEvent::MessageReceived(Box::new(message)))
-                    {
-                        eprintln!("⚠️ Failed to emit message event: {}", e);
-                    }
-                }
-                tokio::time::sleep(Duration::from_millis(5)).await;
-            }
-        });
-    }
-}
-
-impl Clone for AppState {
-    fn clone(&self) -> Self {
-        Self {
-            config: self.config.clone(),
-            platform_manager: self.platform_manager.clone(),
-            emote_system: self.emote_system.clone(),
-            mapping_system: self.mapping_system.clone(),
-            credential_manager: self.credential_manager.clone(),
-            event_emitter: self.event_emitter.clone(),
-            core_renderer: self.core_renderer.clone(),
-        }
     }
 }
 
@@ -213,14 +72,44 @@ async fn main() -> Result<()> {
     // Initialize application state
     let state = AppState::new().await?;
 
-    // Initialize transport layer
-    println!("📡 Initializing transport layer...");
+    // Initialize transport servers
+    let (ws_event_tx, mut ws_event_rx) = mpsc::unbounded_channel();
+    
+    // Start WebSocket Server
+    if state.config.transport.websocket_enabled {
+        let ws_config = WsConfig {
+            bind_address: state.config.transport.websocket_bind.clone(),
+        };
+        let ws_server = WsServer::new(ws_config, ws_event_tx.clone());
+        tokio::spawn(async move {
+            if let Err(e) = ws_server.start().await {
+                eprintln!("[TRANSPORT] WebSocket Server error: {}", e);
+            }
+        });
+    }
 
-    // Preload emotes
-    state.preload_emotes().await?;
+    // Start IPC Server
+    if state.config.transport.ipc_enabled {
+        let ipc_config = IpcConfig {
+            socket_path: state.config.transport.ipc_socket_path.clone(),
+        };
+        let ipc_server = IpcServer::new(ipc_config, ws_event_tx.clone());
+        tokio::spawn(async move {
+            if let Err(e) = ipc_server.start().await {
+                eprintln!("[TRANSPORT] IPC Server error: {}", e);
+            }
+        });
+    }
 
-    // Start platform connections
-    state.start_connections().await?;
+    // Bridge messages to core
+    let bridge = state.bridge.clone();
+    tokio::spawn(async move {
+        while let Some(event) = ws_event_rx.recv().await {
+            if let Err(e) = bridge.handle_ws_event(event).await {
+                eprintln!("[BRIDGE] Error processing event: {}", e);
+            }
+        }
+    });
 
     // Initialize GTK for Linux
     #[cfg(unix)]
@@ -256,7 +145,7 @@ async fn main() -> Result<()> {
     println!("Monitor: {}x{}", monitor_width, monitor_height);
 
     // Calculate window positions
-    let positions = {
+    let mut positions = {
         let mut p = Vec::new();
         let grid_size = state.config.display.grid_size;
         let margin = state.config.display.monitor_margin;
@@ -274,15 +163,15 @@ async fn main() -> Result<()> {
         p
     };
 
-    // Start message processor
-    state.start_message_processor().await;
-    println!("📡 Background services started");
-
-    // Subscribe to events
-    let mut event_rx = state.event_emitter.subscribe();
     let mut position_idx = 0;
-
     println!("🚀 Starting main event loop...");
+
+    // Setup Render Event Receiver
+    let (render_tx, mut render_rx) = mpsc::unbounded_channel();
+    {
+        let mut renderer = state.core_renderer.write().await;
+        renderer.set_event_channel(render_tx);
+    }
 
     // Main loop
     loop {
@@ -290,81 +179,62 @@ async fn main() -> Result<()> {
         let continue_loop = gtk::main_iteration_do(false);
 
         #[cfg(windows)]
-        let continue_loop = process_messages();
+        let continue_loop = crate::windows::process_messages();
 
         if !continue_loop {
             break;
         }
 
-        #[cfg(windows)]
-        tokio::time::sleep(Duration::from_millis(10)).await;
-
-        // Process events
-        tokio::select! {
-            event = event_rx.recv() => {
-                if let Ok(AppEvent::MessageReceived(message)) = event {
+        // Process renderer events
+        while let Ok(event) = render_rx.try_recv() {
+            match event {
+                RenderEvent::ElementQueued(element) => {
                     let pos = positions[position_idx];
                     position_idx = (position_idx + 1) % positions.len();
 
-                    // Create window for the message using the new render module
-                    #[cfg(unix)]
-                    {
-                        let window_config = WindowConfig {
-                            position: pos,
-                            size: (state.config.display.window_size, 80),
-                            duration: Duration::from_secs(state.config.window.message_duration_seconds),
-                            opacity: state.config.display.opacity,
-                            border_radius: state.config.display.border_radius,
-                            font_family: state.config.display.font_family.clone(),
-                            font_size: state.config.display.font_size,
-                        };
+                    let window_config = WindowConfig {
+                        position: pos,
+                        size: (state.config.display.window_size, 80),
+                        duration: Duration::from_secs(state.config.window.message_duration_seconds),
+                        opacity: state.config.display.opacity,
+                        border_radius: state.config.display.border_radius,
+                        font_family: state.config.display.font_family.clone(),
+                        font_size: state.config.display.font_size,
+                    };
 
-                        // Convert to core message type
-                        let core_message = crate::core::ChatMessageElement::new(
-                            message.id,
-                            message.username,
-                            message.content,
-                        );
-
-                        if let Ok(window) = crate::render::gtk::GtkWindow::from_chat_message(&core_message, &window_config) {
-                            window.show();
+                    match *element {
+                        crate::core::OverlayElement::ChatMessage(ref message) => {
+                            #[cfg(unix)]
+                            if let Ok(window) = crate::render::gtk::GtkWindow::from_chat_message(message, &window_config) {
+                                window.show();
+                            }
+                            
+                            #[cfg(windows)]
+                            {
+                                // Windows rendering
+                            }
+                        }
+                        crate::core::OverlayElement::Gift(ref gift) => {
+                            #[cfg(unix)]
+                            if let Ok(window) = crate::render::gtk::GtkWindow::from_gift(gift, &window_config) {
+                                window.show();
+                            }
+                        }
+                        crate::core::OverlayElement::Image(ref image) => {
+                             #[cfg(unix)]
+                             if let Ok(window) = crate::render::gtk::GtkWindow::from_image(image, &window_config) {
+                                 window.show();
+                             }
                         }
                     }
-
-                    #[cfg(windows)]
-                    {
-                        // Convert to core message type - emotes are already in core format
-                        let core_message = crate::core::ChatMessageElement::new(
-                            message.id,
-                            message.username,
-                            message.content,
-                        );
-
-                        let _win = crate::windows::WindowsWindow::new(
-                            &message.username,
-                            &message.content,
-                            &message.emotes,
-                            pos,
-                        );
-                    }
                 }
-            },
-            _ = tokio::time::sleep(Duration::from_millis(100)) => {
-                // Timer tick
+                _ => {}
             }
         }
+
+        tokio::time::sleep(Duration::from_millis(5)).await;
     }
 
-    // Cleanup
-    println!("🔄 Shutting down...");
-    state
-        .platform_manager
-        .write()
-        .await
-        .shutdown()
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
     println!("✅ Shutdown complete");
-
     Ok(())
 }

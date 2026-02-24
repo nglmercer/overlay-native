@@ -10,7 +10,7 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 
 use super::{PlatformWindow, WindowConfig};
-use crate::core::{ChatMessageElement, EmoteElement, GiftElement, OverlayElement};
+use crate::core::{ChatMessageElement, GiftElement, ImageElement, OverlayElement};
 
 /// GTK-based overlay window
 pub struct GtkWindow {
@@ -76,10 +76,11 @@ impl GtkWindow {
         username.set_markup(&username_markup);
         layout.add(&username);
 
-        // Message content with emotes
-        let message_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-        build_message_content(&message_box, &message.content, &message.emotes);
-        layout.add(&message_box);
+        // Message content as a simple label (emotes removed as requested)
+        let label = gtk::Label::new(Some(&message.content));
+        label.set_line_wrap(true);
+        label.set_max_width_chars(50);
+        layout.add(&label);
 
         // Progress bar
         let progress = gtk::ProgressBar::new();
@@ -171,14 +172,14 @@ impl GtkWindow {
         })
     }
 
-    /// Create a new GTK overlay window from an emote event
-    pub fn from_emote(emote: &EmoteElement, config: &WindowConfig) -> Result<Self, RenderError> {
+    /// Create a new GTK overlay window from an image event
+    pub fn from_image(image: &ImageElement, config: &WindowConfig) -> Result<Self, RenderError> {
         #[cfg(target_os = "linux")]
         let window = gtk::Window::new(gtk::WindowType::Popup);
         #[cfg(not(target_os = "linux"))]
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
 
-        window.set_title(&format!("Overlay - Emote {}", emote.name));
+        window.set_title(&format!("Overlay - Image {}", image.name));
         window.set_decorated(false);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
@@ -196,13 +197,13 @@ impl GtkWindow {
         layout.set_margin_top(5);
         layout.set_margin_bottom(5);
 
-        // Emote image
-        let emote_img = gtk::Image::new();
-        // TODO: Load emote from URL asynchronously
-        layout.add(&emote_img);
+        // Image
+        let img = gtk::Image::new();
+        // TODO: Load image from URL asynchronously
+        layout.add(&img);
 
         // Sender label
-        if let Some(sender) = &emote.sender {
+        if let Some(sender) = &image.sender {
             let label = gtk::Label::new(Some(&format!("Sent by {}", sender)));
             layout.add(&label);
         }
@@ -215,7 +216,7 @@ impl GtkWindow {
         window.add(&layout);
 
         Ok(Self {
-            id: emote.id.clone(),
+            id: image.id.clone(),
             window,
             progress,
             created: Instant::now(),
@@ -231,7 +232,7 @@ impl GtkWindow {
         match element {
             OverlayElement::ChatMessage(msg) => Self::from_chat_message(msg, config),
             OverlayElement::Gift(gift) => Self::from_gift(gift, config),
-            OverlayElement::Emote(emote) => Self::from_emote(emote, config),
+            OverlayElement::Image(image) => Self::from_image(image, config),
         }
     }
 
@@ -274,43 +275,6 @@ impl Clone for GtkWindow {
     }
 }
 
-/// Build the message content with emotes
-fn build_message_content(container: &gtk::Box, content: &str, emotes: &[crate::core::Emote]) {
-    // Sort emotes by position
-    let mut sorted_emotes = emotes.to_vec();
-    sorted_emotes.sort_by_key(|e| e.positions.first().map(|p| p.start).unwrap_or(0));
-
-    let mut current_pos = 0;
-
-    for emote in sorted_emotes {
-        if let Some(pos) = emote.positions.first() {
-            // Add text before emote
-            if pos.start > current_pos {
-                let text = &content[current_pos..pos.start];
-                let label = gtk::Label::new(Some(text));
-                container.add(&label);
-            }
-
-            // Add emote image
-            let img = gtk::Image::new();
-            // TODO: Load emote from cache or URL
-            if let Some(_url) = &emote.url {
-                // Set placeholder for now
-                img.set_from_icon_name(Some("face-smile-symbolic"), gtk::IconSize::Button);
-            }
-            container.add(&img);
-
-            current_pos = pos.end;
-        }
-    }
-
-    // Add remaining text
-    if current_pos < content.len() {
-        let text = &content[current_pos..];
-        let label = gtk::Label::new(Some(text));
-        container.add(&label);
-    }
-}
 
 /// Errors during rendering
 #[derive(Debug, thiserror::Error)]

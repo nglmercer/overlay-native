@@ -43,12 +43,10 @@
 //! - [`transport`] - IPC and WebSocket transport for receiving messages
 //! - [`render`] - Platform-specific window rendering
 //! - [`config`] - Configuration management
-//! - [`emotes`] - Emote parsing and caching
-//! - [`mapping`] - Data mapping between different formats
 //!
 //! ## Usage
 //!
-//! The overlay receives messages from external platform handlers via the
+//! The overlay receives messages from external handlers via the
 //! transport layer. Messages are validated, normalized, and rendered
 //! using the platform-specific render layer.
 
@@ -64,14 +62,6 @@ pub mod transport;
 
 // Rendering - platform-specific window management
 pub mod render;
-
-// Supporting modules
-pub mod emotes;
-pub mod mapping;
-
-// Legacy modules (kept for backward compatibility during migration)
-pub mod connection;
-pub mod platforms;
 
 // Platform-specific legacy modules
 #[cfg(unix)]

@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::core::{ChatMessageElement, CoreRenderer, EmoteElement, GiftElement, MessageFilter};
+use crate::core::{ChatMessageElement, CoreRenderer, GiftElement, ImageElement, MessageFilter};
 use crate::transport::schema::IncomingMessage;
 use crate::transport::websocket::WsEvent;
 
@@ -126,12 +126,12 @@ impl TransportBridge {
                     .validate()
                     .map_err(|e| BridgeError::Validation(e.to_string()))?;
 
-                let emote: EmoteElement = payload.into();
-                let id = emote.id.clone();
+                let image: ImageElement = payload.into();
+                let id = image.id.clone();
 
                 let renderer = self.renderer.read().await;
                 renderer
-                    .process_emote(emote)
+                    .process_image(image)
                     .await
                     .map_err(|e| BridgeError::Render(e.to_string()))?;
 
