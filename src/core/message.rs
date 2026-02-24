@@ -229,8 +229,8 @@ impl From<crate::transport::schema::GiftPayload> for GiftElement {
     }
 }
 
-impl From<crate::transport::schema::EmoteEventPayload> for ImageElement {
-    fn from(payload: crate::transport::schema::EmoteEventPayload) -> Self {
+impl From<crate::transport::schema::ImagePayload> for ImageElement {
+    fn from(payload: crate::transport::schema::ImagePayload) -> Self {
         Self {
             id: payload.id.clone(),
             name: payload.name.clone(),

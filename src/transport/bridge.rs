@@ -121,7 +121,7 @@ impl TransportBridge {
                 Ok(())
             }
 
-            IncomingMessage::Emote(payload) => {
+            IncomingMessage::Image(payload) => {
                 payload
                     .validate()
                     .map_err(|e| BridgeError::Validation(e.to_string()))?;

@@ -12,15 +12,6 @@ mod core;
 mod render;
 mod transport;
 
-#[cfg(unix)]
-mod window;
-
-#[cfg(windows)]
-mod windows;
-
-#[cfg(target_os = "linux")]
-pub mod x11;
-
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};

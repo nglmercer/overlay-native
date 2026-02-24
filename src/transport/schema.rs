@@ -1,112 +1,107 @@
-/// Schema de mensajes entrantes para la capa de transporte (IPC/WebSocket)
+/// Incoming message schema for the transport layer (IPC/WebSocket)
 ///
-/// Este módulo define el formato de mensajes que los clientes deben enviar
-/// al overlay. La plataforma es agnóstica: cualquier fuente puede enviar
-/// mensajes mientras cumplan este esquema.
+/// This module defines the format of messages that clients must send
+/// to the overlay. The platform is agnostic: any source can send
+/// messages as long as they comply with this schema.
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
-/// Error de validación de mensajes
+/// Message validation error
 #[derive(Debug, Error)]
 pub enum SchemaError {
-    #[error("Campo requerido faltante: {0}")]
+    #[error("Missing required field: {0}")]
     MissingField(String),
 
-    #[error("Valor inválido para '{field}': {reason}")]
+    #[error("Invalid value for '{field}': {reason}")]
     InvalidValue { field: String, reason: String },
 
-    #[error("JSON inválido: {0}")]
+    #[error("Invalid JSON: {0}")]
     JsonError(#[from] serde_json::Error),
 
-    #[error("Tipo de mensaje desconocido: {0}")]
+    #[error("Unknown message type: {0}")]
     UnknownMessageType(String),
 }
 
-/// Mensaje entrante desde cualquier transporte (WebSocket, IPC)
-/// Usa el campo `type` como discriminante (serde tagged enum)
+/// Incoming message from any transport (WebSocket, IPC)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum IncomingMessage {
-    /// Mensaje de chat estándar (texto, emotes, badges)
+    /// Standard chat message (text and badges)
     ChatMessage(ChatMessagePayload),
 
-    /// Regalo/Gift (subscripción, bits, etc.)
+    /// Gift/Subscription event (sub, bits, etc.)
     Gift(GiftPayload),
 
-    /// Evento de emote único (sticker, solo emote)
-    Emote(EmoteEventPayload),
+    /// Single image event (sticker, full-screen image)
+    Image(ImagePayload),
 
-    /// Ping para mantener la conexión viva
+    /// Ping to keep connection alive
     Ping,
 
-    /// Solicitud de estado del overlay
+    /// Request for overlay status
     Status,
 }
 
-/// Payload de un mensaje de chat
+/// Chat message payload
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessagePayload {
-    /// ID único del mensaje (opcional, se genera si no se provee)
+    /// Unique message ID (optional, generated if not provided)
     pub id: Option<String>,
 
-    /// Nombre de usuario (requerido)
+    /// Username (required)
     pub username: String,
 
-    /// Nombre visible del usuario (opcional, usa `username` si no se provee)
+    /// Display name (optional, defaults to username)
     pub display_name: Option<String>,
 
-    /// Contenido del mensaje (requerido)
+    /// Message content (required)
     pub content: String,
 
-    /// Color del usuario en formato hex (ej: "#FF0000")
+    /// User color in hex format (e.g., "#FF0000")
     pub user_color: Option<String>,
 
-    /// Lista de emotes en el mensaje
-    #[serde(default)]
-    pub emotes: Vec<EmotePayload>,
-
-    /// Lista de badges del usuario
+    /// List of user badges
     #[serde(default)]
     pub badges: Vec<BadgePayload>,
 
-    /// Plataforma de origen (informativo, no afecta renderizado)
+    /// Origin platform (informational)
     pub platform: Option<String>,
 
-    /// Canal de origen (informativo, no afecta renderizado)
+    /// Origin channel (informational)
     pub channel: Option<String>,
 
-    /// Metadatos adicionales arbitrarios
+    /// Arbitrary additional metadata
     #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
-/// Payload de un regalo/gift
+/// Gift/subscription payload
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GiftPayload {
-    /// Quien envía el regalo
+    /// Who sent the gift
     pub from_user: String,
 
-    /// Quien lo recibe (None = aleatorio/comunidad)
+    /// Who received the gift (None = random/community)
     pub to_user: Option<String>,
 
-    /// Tipo de regalo (subscription, bits, etc.)
+    /// Type of gift (subscription, bits, etc.)
     pub gift_type: GiftType,
 
-    /// Cantidad (meses de suscripción, bits, etc.)
+    /// Amount (subscription months, bits, etc.)
     pub amount: Option<u32>,
 
-    /// Nombre del tier/plan (Tier 1, Tier 2, etc.)
+    /// Tier/plan name (Tier 1, Tier 2, etc.)
     pub tier: Option<String>,
 
-    /// Mensaje personalizado
+    /// Personal message
     pub message: Option<String>,
 
-    /// Plataforma de origen (informativo)
+    /// Origin platform (informational)
     pub platform: Option<String>,
 }
 
-/// Tipo de regalo
+/// Gift type
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GiftType {
@@ -118,126 +113,92 @@ pub enum GiftType {
     Other(String),
 }
 
-/// Payload de un evento de emote único (sticker, etc.)
+/// Single image event payload (sticker, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EmoteEventPayload {
-    /// ID del emote
+pub struct ImagePayload {
+    /// Image ID
     pub id: String,
 
-    /// Nombre del emote
+    /// Image name
     pub name: String,
 
-    /// URL de la imagen del emote
+    /// Image URL
     pub url: String,
 
-    /// Si el emote es animado (GIF)
+    /// Whether the image is animated (GIF)
     #[serde(default)]
     pub is_animated: bool,
 
-    /// Ancho en píxeles
+    /// Width in pixels
     pub width: Option<u32>,
 
-    /// Alto en píxeles
+    /// Height in pixels
     pub height: Option<u32>,
 
-    /// Usuario que lo envió (opcional)
+    /// User who sent the image (optional)
     pub sender: Option<String>,
 }
 
-/// Definición de un emote dentro de un mensaje
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EmotePayload {
-    /// ID del emote en su plataforma/servicio
-    pub id: String,
-
-    /// Nombre/código del emote (ej: "Kappa", "monkaS")
-    pub name: String,
-
-    /// URL directa a la imagen del emote
-    pub url: Option<String>,
-
-    /// Si el emote es animado (GIF/WebP animado)
-    #[serde(default)]
-    pub is_animated: bool,
-
-    /// Posiciones en el texto donde aparece el emote
-    #[serde(default)]
-    pub positions: Vec<EmotePosition>,
-
-    /// Ancho del emote en píxeles
-    pub width: Option<u32>,
-
-    /// Alto del emote en píxeles
-    pub height: Option<u32>,
-}
-
-/// Posición de un emote en el texto
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EmotePosition {
-    pub start: usize,
-    pub end: usize,
-}
-
-/// Definición de un badge de usuario
+/// User badge definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BadgePayload {
-    /// ID del badge
+    /// Badge ID
     pub id: String,
 
-    /// Nombre legible del badge
+    /// Human-readable badge name
     pub name: String,
 
-    /// URL de la imagen del badge
+    /// Badge image URL
     pub url: Option<String>,
 
-    /// Descripción/título del badge
+    /// Badge title/description
     pub title: Option<String>,
 }
 
-/// Respuesta del overlay al cliente
+/// Overlay response to the client
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum OutgoingMessage {
-    /// Confirmación de mensaje recibido
+    /// Acknowledgment of message received
     Ack { id: String },
 
-    /// Respuesta al ping
+    /// Response to ping
     Pong,
 
-    /// Estado actual del overlay
+    /// Current overlay status
     Status(OverlayStatus),
 
-    /// Error de procesamiento
+    /// Processing error
     Error { code: String, message: String },
 }
 
-/// Estado del overlay
+/// Overlay status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OverlayStatus {
-    /// Número de ventanas activas
+    /// Number of active windows
     pub active_windows: usize,
 
-    /// Número de clientes conectados
+    /// Number of connected clients
     pub connected_clients: usize,
 
-    /// Versión del overlay
+    /// Overlay version
     pub version: String,
 }
 
 impl IncomingMessage {
-    /// Parsea un mensaje desde JSON y lo valida
+    /// Parse a message from JSON and validate it
     pub fn parse_and_validate(raw: &str) -> Result<Self, SchemaError> {
         let msg: IncomingMessage = serde_json::from_str(raw)?;
         msg.validate()?;
         Ok(msg)
     }
 
-    /// Valida las reglas de negocio del mensaje
+    /// Validate business rules for the message
     pub fn validate(&self) -> Result<(), SchemaError> {
         match self {
             IncomingMessage::ChatMessage(payload) => payload.validate(),
             IncomingMessage::Gift(payload) => payload.validate(),
-            IncomingMessage::Emote(payload) => payload.validate(),
+            IncomingMessage::Image(payload) => payload.validate(),
             IncomingMessage::Ping | IncomingMessage::Status => Ok(()),
         }
     }
@@ -245,71 +206,41 @@ impl IncomingMessage {
 
 impl ChatMessagePayload {
     pub fn validate(&self) -> Result<(), SchemaError> {
-        // username es requerido y no puede estar vacío
         if self.username.trim().is_empty() {
             return Err(SchemaError::MissingField("username".to_string()));
         }
 
-        // content es requerido y no puede estar vacío
         if self.content.trim().is_empty() {
             return Err(SchemaError::MissingField("content".to_string()));
         }
 
-        // Longitud máxima de username
         if self.username.len() > 256 {
             return Err(SchemaError::InvalidValue {
                 field: "username".to_string(),
-                reason: "demasiado largo (máximo 256 caracteres)".to_string(),
+                reason: "too long (max 256 characters)".to_string(),
             });
         }
 
-        // Longitud máxima de content
         if self.content.len() > 4096 {
             return Err(SchemaError::InvalidValue {
                 field: "content".to_string(),
-                reason: "demasiado largo (máximo 4096 caracteres)".to_string(),
+                reason: "too long (max 4096 characters)".to_string(),
             });
         }
 
-        // Validar color si se provee
         if let Some(color) = &self.user_color {
             if !is_valid_hex_color(color) {
                 return Err(SchemaError::InvalidValue {
                     field: "user_color".to_string(),
-                    reason: format!("'{}' no es un color hex válido (ej: #FF0000)", color),
+                    reason: format!("'{}' is not a valid hex color (eg: #FF0000)", color),
                 });
-            }
-        }
-
-        // Validar posiciones de emotes
-        for (i, emote) in self.emotes.iter().enumerate() {
-            for pos in &emote.positions {
-                if pos.start > pos.end {
-                    return Err(SchemaError::InvalidValue {
-                        field: format!("emotes[{}].positions", i),
-                        reason: format!(
-                            "start ({}) no puede ser mayor que end ({})",
-                            pos.start, pos.end
-                        ),
-                    });
-                }
-                if pos.end > self.content.len() {
-                    return Err(SchemaError::InvalidValue {
-                        field: format!("emotes[{}].positions", i),
-                        reason: format!(
-                            "end ({}) excede la longitud del contenido ({})",
-                            pos.end,
-                            self.content.len()
-                        ),
-                    });
-                }
             }
         }
 
         Ok(())
     }
 
-    /// Genera un ID si no se provee uno
+    /// Generate an ID if not provided
     pub fn get_or_generate_id(&self) -> String {
         self.id.clone().unwrap_or_else(|| {
             use std::time::{SystemTime, UNIX_EPOCH};
@@ -331,7 +262,7 @@ impl GiftPayload {
     }
 }
 
-impl EmoteEventPayload {
+impl ImagePayload {
     pub fn validate(&self) -> Result<(), SchemaError> {
         if self.id.trim().is_empty() {
             return Err(SchemaError::MissingField("id".to_string()));
@@ -346,7 +277,7 @@ impl EmoteEventPayload {
     }
 }
 
-/// Valida si un string es un color hexadecimal válido (#RGB, #RRGGBB, #RRGGBBAA)
+/// Validate if a string is a valid hex color (#RGB, #RRGGBB, #RRGGBBAA)
 fn is_valid_hex_color(color: &str) -> bool {
     if !color.starts_with('#') {
         return false;

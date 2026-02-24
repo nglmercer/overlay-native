@@ -63,19 +63,9 @@ pub mod transport;
 // Rendering - platform-specific window management
 pub mod render;
 
-// Platform-specific legacy modules
-#[cfg(unix)]
-pub mod window;
-
-#[cfg(windows)]
-pub mod windows;
-
-#[cfg(target_os = "linux")]
-pub mod x11;
-
 // Re-exports for convenience
-pub use core::{ChatMessageElement, CoreRenderer, EmoteElement, GiftElement, OverlayElement};
+pub use core::{ChatMessageElement, CoreRenderer, GiftElement, ImageElement, OverlayElement};
 #[cfg(unix)]
 pub use render::GtkWindow;
 pub use render::{PlatformWindow, WindowConfig};
-pub use transport::{ChatMessagePayload, GiftPayload, IncomingMessage, TransportBridge};
+pub use transport::{ChatMessagePayload, GiftPayload, IncomingMessage, bridge::TransportBridge};
