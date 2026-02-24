@@ -68,4 +68,4 @@ pub use core::{ChatMessageElement, CoreRenderer, GiftElement, ImageElement, Over
 #[cfg(unix)]
 pub use render::GtkWindow;
 pub use render::{PlatformWindow, WindowConfig};
-pub use transport::{ChatMessagePayload, GiftPayload, IncomingMessage, bridge::TransportBridge};
+pub use transport::{bridge::TransportBridge, ChatMessagePayload, GiftPayload, IncomingMessage};

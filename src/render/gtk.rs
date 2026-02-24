@@ -275,7 +275,6 @@ impl Clone for GtkWindow {
     }
 }
 
-
 /// Errors during rendering
 #[derive(Debug, thiserror::Error)]
 pub enum RenderError {

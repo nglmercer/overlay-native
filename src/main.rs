@@ -25,7 +25,9 @@ use gtk::prelude::*;
 use crate::config::Config;
 use crate::core::{CoreRenderer, RenderEvent};
 use crate::render::WindowConfig;
-use crate::transport::{TransportBridge, websocket::WsServer, ipc::IpcServer, websocket::WsConfig, ipc::IpcConfig};
+use crate::transport::{
+    ipc::IpcConfig, ipc::IpcServer, websocket::WsConfig, websocket::WsServer, TransportBridge,
+};
 
 /// Main application state
 struct AppState {
@@ -65,7 +67,7 @@ async fn main() -> Result<()> {
 
     // Initialize transport servers
     let (ws_event_tx, mut ws_event_rx) = mpsc::unbounded_channel();
-    
+
     // Start WebSocket Server
     if state.config.transport.websocket_enabled {
         let ws_config = WsConfig {
@@ -136,7 +138,7 @@ async fn main() -> Result<()> {
     println!("Monitor: {}x{}", monitor_width, monitor_height);
 
     // Calculate window positions
-    let mut positions = {
+    let positions = {
         let mut p = Vec::new();
         let grid_size = state.config.display.grid_size;
         let margin = state.config.display.monitor_margin;
@@ -196,10 +198,13 @@ async fn main() -> Result<()> {
                     match *element {
                         crate::core::OverlayElement::ChatMessage(ref message) => {
                             #[cfg(unix)]
-                            if let Ok(window) = crate::render::gtk::GtkWindow::from_chat_message(message, &window_config) {
+                            if let Ok(window) = crate::render::gtk::GtkWindow::from_chat_message(
+                                message,
+                                &window_config,
+                            ) {
                                 window.show();
                             }
-                            
+
                             #[cfg(windows)]
                             {
                                 // Windows rendering
@@ -207,15 +212,19 @@ async fn main() -> Result<()> {
                         }
                         crate::core::OverlayElement::Gift(ref gift) => {
                             #[cfg(unix)]
-                            if let Ok(window) = crate::render::gtk::GtkWindow::from_gift(gift, &window_config) {
+                            if let Ok(window) =
+                                crate::render::gtk::GtkWindow::from_gift(gift, &window_config)
+                            {
                                 window.show();
                             }
                         }
                         crate::core::OverlayElement::Image(ref image) => {
-                             #[cfg(unix)]
-                             if let Ok(window) = crate::render::gtk::GtkWindow::from_image(image, &window_config) {
-                                 window.show();
-                             }
+                            #[cfg(unix)]
+                            if let Ok(window) =
+                                crate::render::gtk::GtkWindow::from_image(image, &window_config)
+                            {
+                                window.show();
+                            }
                         }
                     }
                 }

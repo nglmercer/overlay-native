@@ -30,7 +30,10 @@ pub struct WsServer {
 
 impl WsServer {
     pub fn new(config: WsConfig, event_tx: mpsc::UnboundedSender<WsEvent>) -> Self {
-        let addr: SocketAddr = config.bind_address.parse().unwrap_or_else(|_| "127.0.0.1:9001".parse().unwrap());
+        let addr: SocketAddr = config
+            .bind_address
+            .parse()
+            .unwrap_or_else(|_| "127.0.0.1:9001".parse().unwrap());
         let (broadcast_tx, _) = broadcast::channel(256);
 
         Self {
@@ -59,7 +62,9 @@ impl WsServer {
                     let bcast_rx = broadcast_tx.subscribe();
 
                     tokio::spawn(async move {
-                        if let Err(e) = handle_connection(stream, addr, tx, bcast_tx, bcast_rx).await {
+                        if let Err(e) =
+                            handle_connection(stream, addr, tx, bcast_tx, bcast_rx).await
+                        {
                             eprintln!("[WS] Client error {}: {}", addr, e);
                         }
                     });
@@ -79,7 +84,7 @@ async fn handle_connection(
 ) -> anyhow::Result<()> {
     let ws_stream = accept_async(stream).await?;
     CONNECTED_CLIENTS.fetch_add(1, Ordering::Relaxed);
-    
+
     let _ = event_tx.send(WsEvent::ClientConnected(addr));
     let (mut ws_tx, mut ws_rx) = ws_stream.split();
 
@@ -87,7 +92,8 @@ async fn handle_connection(
         active_windows: 0,
         connected_clients: CONNECTED_CLIENTS.load(Ordering::Relaxed),
         version: env!("CARGO_PKG_VERSION").to_string(),
-    })).unwrap_or_default();
+    }))
+    .unwrap_or_default();
 
     let _ = ws_tx.send(Message::Text(welcome)).await;
 
@@ -144,7 +150,8 @@ async fn handle_text_message(
             let error_msg = serde_json::to_string(&OutgoingMessage::Error {
                 code: "VALIDATION_ERROR".to_string(),
                 message: e.to_string(),
-            }).unwrap_or_default();
+            })
+            .unwrap_or_default();
             let _ = broadcast_tx.send(error_msg);
         }
     }

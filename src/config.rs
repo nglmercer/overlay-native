@@ -82,7 +82,8 @@ pub enum LogLevel {
 impl Config {
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
         let content = fs::read_to_string(path).map_err(|e| ConfigError::File(e.to_string()))?;
-        let config: Config = serde_json::from_str(&content).map_err(|e| ConfigError::Parse(e.to_string()))?;
+        let config: Config =
+            serde_json::from_str(&content).map_err(|e| ConfigError::Parse(e.to_string()))?;
         config.validate()?;
         Ok(config)
     }
@@ -94,14 +95,20 @@ impl Config {
     pub fn load_with_fallback<P: AsRef<Path>>(external_path: P) -> Result<Self, ConfigError> {
         match Self::load_from_file(&external_path) {
             Ok(config) => {
-                println!("[CONFIG] ✅ External config loaded from: {:?}", external_path.as_ref());
+                println!(
+                    "[CONFIG] ✅ External config loaded from: {:?}",
+                    external_path.as_ref()
+                );
                 Ok(config)
             }
             Err(_) => {
                 println!("[CONFIG] 🔄 Creating default config file...");
                 let default_config = Self::default();
                 if let Err(e) = default_config.save_to_file(&external_path) {
-                    eprintln!("[CONFIG] ❌ Warning: Could not create external config file: {}", e);
+                    eprintln!(
+                        "[CONFIG] ❌ Warning: Could not create external config file: {}",
+                        e
+                    );
                 }
                 Ok(default_config)
             }
@@ -110,7 +117,8 @@ impl Config {
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
         self.validate()?;
-        let content = serde_json::to_string_pretty(self).map_err(|e| ConfigError::Serialize(e.to_string()))?;
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| ConfigError::Serialize(e.to_string()))?;
         fs::write(path, content).map_err(|e| ConfigError::File(e.to_string()))?;
         Ok(())
     }
@@ -121,10 +129,14 @@ impl Config {
 
     fn validate(&self) -> Result<(), ConfigError> {
         if self.window.message_duration_seconds == 0 {
-            return Err(ConfigError::Validation("message_duration_seconds must be greater than 0".to_string()));
+            return Err(ConfigError::Validation(
+                "message_duration_seconds must be greater than 0".to_string(),
+            ));
         }
         if self.window.max_windows == 0 {
-            return Err(ConfigError::Validation("max_windows must be greater than 0".to_string()));
+            return Err(ConfigError::Validation(
+                "max_windows must be greater than 0".to_string(),
+            ));
         }
         Ok(())
     }

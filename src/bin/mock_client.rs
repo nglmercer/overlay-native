@@ -8,40 +8,56 @@ use gtk::gdk;
 #[cfg(unix)]
 use gtk::prelude::*;
 
-use overlay_native::core::{ChatMessageElement, CoreRenderer, GiftElement, OverlayElement};
+use overlay_native::core::{ChatMessageElement, GiftElement};
 use overlay_native::render::{PlatformWindow, WindowConfig};
 use overlay_native::transport::{
-    ChatMessagePayload, GiftPayload, GiftType as TransportGiftType,
-    IncomingMessage,
+    ChatMessagePayload, GiftPayload, GiftType as TransportGiftType, IncomingMessage,
 };
 use rand::seq::SliceRandom;
 use rand::Rng;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
 
 #[cfg(unix)]
 use overlay_native::render::gtk::GtkWindow;
 
 fn generate_random_username() -> String {
-    let prefixes = ["Epic", "Mega", "Ultra", "Ninja", "Shadow", "Neon", "Pixel", "Retro"];
-    let suffixes = ["Gamer", "Player", "Streamer", "Viewer", "Coder", "Master", "Legend"];
+    let prefixes = [
+        "Epic", "Mega", "Ultra", "Ninja", "Shadow", "Neon", "Pixel", "Retro",
+    ];
+    let suffixes = [
+        "Gamer", "Player", "Streamer", "Viewer", "Coder", "Master", "Legend",
+    ];
     let numbers = ["", "69", "420", "123", "7", "42"];
     let mut rng = rand::thread_rng();
-    format!("{}{}{}", prefixes.choose(&mut rng).unwrap(), suffixes.choose(&mut rng).unwrap(), numbers.choose(&mut rng).unwrap())
+    format!(
+        "{}{}{}",
+        prefixes.choose(&mut rng).unwrap(),
+        suffixes.choose(&mut rng).unwrap(),
+        numbers.choose(&mut rng).unwrap()
+    )
 }
 
 fn generate_random_message() -> String {
     let phrases = [
-        "Hey everyone!", "This stream is awesome!", "Great content!", "Let's go!", 
-        "That was insane!", "CLIP IT!", "LOL", "GG", "W in the chat", "sheesh"
+        "Hey everyone!",
+        "This stream is awesome!",
+        "Great content!",
+        "Let's go!",
+        "That was insane!",
+        "CLIP IT!",
+        "LOL",
+        "GG",
+        "W in the chat",
+        "sheesh",
     ];
     let mut rng = rand::thread_rng();
     phrases.choose(&mut rng).unwrap().to_string()
 }
 
 fn generate_random_color() -> String {
-    let colors = ["#FF0000", "#00FF00", "#0000FF", "#FF00FF", "#00FFFF", "#FFFF00", "#FF6600"];
+    let colors = [
+        "#FF0000", "#00FF00", "#0000FF", "#FF00FF", "#00FFFF", "#FFFF00", "#FF6600",
+    ];
     let mut rng = rand::thread_rng();
     colors.choose(&mut rng).unwrap().to_string()
 }
@@ -53,7 +69,10 @@ fn generate_random_badges() -> Vec<overlay_native::transport::BadgePayload> {
         badges.push(overlay_native::transport::BadgePayload {
             id: "subscriber".to_string(),
             name: "Subscriber".to_string(),
-            url: Some("https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/2".to_string()),
+            url: Some(
+                "https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/2"
+                    .to_string(),
+            ),
             title: Some("Subscriber".to_string()),
         });
     }
@@ -106,12 +125,16 @@ fn main() {
         );
     }
 
-    let (monitor_width, monitor_height) = #[cfg(unix)] {
+    #[cfg(unix)]
+    let (monitor_width, monitor_height) = {
         let display = gdk::Display::default().expect("No default display");
         let monitor = display.primary_monitor().expect("No primary monitor");
         let geom = monitor.geometry();
         (geom.width(), geom.height())
-    } #[cfg(windows)] { (1920, 1080) };
+    };
+
+    #[cfg(windows)]
+    let (monitor_width, monitor_height) = (1920, 1080);
 
     println!("Monitor: {}x{}", monitor_width, monitor_height);
 
@@ -125,7 +148,6 @@ fn main() {
         font_size: 14,
     };
 
-    let renderer = Arc::new(RwLock::new(CoreRenderer::new()));
     let num_messages = 5;
     let mut active_windows: Vec<(String, GtkWindow, Instant)> = Vec::new();
 
@@ -135,18 +157,25 @@ fn main() {
 
         match message {
             IncomingMessage::ChatMessage(payload) => {
-                println!("💬 [{}/{}] {}: {}", i, num_messages, payload.username, payload.content);
+                println!(
+                    "💬 [{}/{}] {}: {}",
+                    i, num_messages, payload.username, payload.content
+                );
                 let core_message: ChatMessageElement = payload.into();
                 #[cfg(unix)]
                 {
-                    if let Ok(window) = GtkWindow::from_chat_message(&core_message, &window_config) {
+                    if let Ok(window) = GtkWindow::from_chat_message(&core_message, &window_config)
+                    {
                         window.show();
                         active_windows.push((core_message.id.clone(), window, Instant::now()));
                     }
                 }
             }
             IncomingMessage::Gift(payload) => {
-                println!("🎁 [{}/{}] Gift from {}", i, num_messages, payload.from_user);
+                println!(
+                    "🎁 [{}/{}] Gift from {}",
+                    i, num_messages, payload.from_user
+                );
                 let gift: GiftElement = payload.into();
                 #[cfg(unix)]
                 {
@@ -175,7 +204,7 @@ fn main() {
 
     println!("\n✅ Done. Closing in 5s...");
     std::thread::sleep(Duration::from_secs(5));
-    
+
     #[cfg(unix)]
     for (_, window, _) in active_windows {
         window.close();
