@@ -64,7 +64,7 @@ pub mod transport;
 pub mod render;
 
 // Re-exports for convenience
-pub use core::{ChatMessageElement, CoreRenderer, GiftElement, ImageElement, OverlayElement};
+pub use core::{Alert, AlertBuilder, ChatMessageElement, CoreRenderer, GiftElement, ImageElement, OverlayElement};
 #[cfg(unix)]
 pub use render::GtkWindow;
 pub use render::{PlatformWindow, WindowConfig};

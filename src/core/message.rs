@@ -13,18 +13,92 @@ fn system_time_now() -> SystemTime {
     SystemTime::now()
 }
 
+
 /// Unified message type for all overlay elements
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "element_type", content = "data", rename_all = "snake_case")]
 pub enum OverlayElement {
-    /// A chat message with text and badges
+    /// A chat message (legacy support)
     ChatMessage(ChatMessageElement),
 
-    /// A gift/subscription event
+    /// A gift/subscription event (legacy support)
     Gift(GiftElement),
 
-    /// A single image/sticker event
+    /// A single image/sticker event (legacy support)
     Image(ImageElement),
+
+    /// A generic alert built with components
+    Alert(Alert),
+}
+
+/// Generic Alert structure for flexible overlay elements
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Alert {
+    /// Unique identifier
+    pub id: String,
+
+    /// List of components to render
+    pub components: Vec<AlertComponent>,
+
+    /// Layout for the components
+    pub layout: Layout,
+
+    /// Custom style for this alert
+    pub style: AlertStyle,
+
+    /// Timestamp when created
+    #[serde(default = "system_time_now")]
+    pub timestamp: SystemTime,
+
+    /// Custom duration override
+    pub duration: Option<u64>,
+}
+
+/// Components that can make up an Alert
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AlertComponent {
+    /// Text component
+    Text {
+        content: String,
+        color: Option<String>,
+        weight: Option<String>,
+        size: Option<u32>,
+    },
+    /// Image component (supports GIFs)
+    Image {
+        url: String,
+        width: Option<u32>,
+        height: Option<u32>,
+        is_animated: bool,
+    },
+    /// Badge/Icon component
+    Badge {
+        id: String,
+        name: String,
+        url: Option<String>,
+    },
+}
+
+/// Layout options for Alert components
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Layout {
+    #[default]
+    Vertical,
+    Horizontal,
+    Stacked,
+}
+
+/// Styling options for Alerts
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AlertStyle {
+    pub background_color: Option<String>,
+    pub border_color: Option<String>,
+    pub border_radius: Option<u32>,
+    pub padding: Option<u32>,
+    pub opacity: Option<f32>,
+    pub custom_css: Option<String>,
 }
 
 /// Chat message element - the most common overlay element
@@ -81,6 +155,45 @@ impl ChatMessageElement {
     /// Get the effective display name
     pub fn effective_display_name(&self) -> &str {
         self.display_name.as_deref().unwrap_or(&self.username)
+    }
+
+    /// Convert to a modern Alert
+    pub fn to_alert(&self) -> Alert {
+        let mut components = Vec::new();
+        
+        // Add badges
+        for badge in &self.badges {
+            components.push(AlertComponent::Badge {
+                id: badge.id.clone(),
+                name: badge.name.clone(),
+                url: badge.url.clone(),
+            });
+        }
+
+        // Add username
+        components.push(AlertComponent::Text {
+            content: self.effective_display_name().to_string(),
+            color: self.user_color.clone(),
+            weight: Some("bold".to_string()),
+            size: None,
+        });
+
+        // Add content
+        components.push(AlertComponent::Text {
+            content: self.content.clone(),
+            color: None,
+            weight: None,
+            size: None,
+        });
+
+        Alert {
+            id: self.id.clone(),
+            components,
+            layout: Layout::Vertical,
+            style: AlertStyle::default(),
+            timestamp: self.timestamp,
+            duration: None,
+        }
     }
 }
 
@@ -169,77 +282,4 @@ pub struct Badge {
 
     /// Badge title/description
     pub title: Option<String>,
-}
-
-/// Convert from transport schema types to core types
-impl From<crate::transport::schema::ChatMessagePayload> for ChatMessageElement {
-    fn from(payload: crate::transport::schema::ChatMessagePayload) -> Self {
-        Self {
-            id: payload.get_or_generate_id(),
-            username: payload.username.clone(),
-            display_name: payload.display_name.clone(),
-            content: payload.content.clone(),
-            user_color: payload.user_color.clone(),
-            badges: payload.badges.into_iter().map(|b| b.into()).collect(),
-            platform: payload.platform.clone(),
-            timestamp: SystemTime::now(),
-            metadata: payload.metadata,
-        }
-    }
-}
-
-impl From<crate::transport::schema::BadgePayload> for Badge {
-    fn from(payload: crate::transport::schema::BadgePayload) -> Self {
-        Self {
-            id: payload.id.clone(),
-            name: payload.name.clone(),
-            url: payload.url.clone(),
-            title: payload.title.clone(),
-        }
-    }
-}
-
-impl From<crate::transport::schema::GiftPayload> for GiftElement {
-    fn from(payload: crate::transport::schema::GiftPayload) -> Self {
-        let gift_type = match payload.gift_type {
-            crate::transport::schema::GiftType::Subscription => GiftType::Subscription,
-            crate::transport::schema::GiftType::GiftSubscription => GiftType::GiftSubscription,
-            crate::transport::schema::GiftType::Bits => GiftType::Bits,
-            crate::transport::schema::GiftType::Cheer => GiftType::Cheer,
-            crate::transport::schema::GiftType::Donation => GiftType::Donation,
-            crate::transport::schema::GiftType::Other(s) => GiftType::Other(s),
-        };
-
-        Self {
-            id: format!(
-                "gift_{}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis()
-            ),
-            from_user: payload.from_user,
-            to_user: payload.to_user,
-            gift_type,
-            amount: payload.amount,
-            tier: payload.tier,
-            message: payload.message,
-            timestamp: SystemTime::now(),
-        }
-    }
-}
-
-impl From<crate::transport::schema::ImagePayload> for ImageElement {
-    fn from(payload: crate::transport::schema::ImagePayload) -> Self {
-        Self {
-            id: payload.id.clone(),
-            name: payload.name.clone(),
-            url: payload.url.clone(),
-            is_animated: payload.is_animated,
-            width: payload.width,
-            height: payload.height,
-            sender: payload.sender,
-            timestamp: SystemTime::now(),
-        }
-    }
 }

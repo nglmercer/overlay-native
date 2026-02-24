@@ -25,7 +25,9 @@
 pub mod config;
 pub mod message;
 pub mod renderer;
+pub mod builder;
 
 pub use config::*;
 pub use message::*;
 pub use renderer::*;
+pub use builder::*;

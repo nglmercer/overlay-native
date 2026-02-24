@@ -12,7 +12,7 @@ use super::config::{
     AnimationSettings, CoreConfig, DisplaySettings, MessageFilter, ProcessingSettings,
     WindowSettings,
 };
-use super::message::{ChatMessageElement, GiftElement, OverlayElement};
+use super::message::{Alert, ChatMessageElement, GiftElement, OverlayElement, Badge};
 
 /// Errors that can occur during rendering
 #[derive(Debug, thiserror::Error)]
@@ -151,7 +151,7 @@ impl CoreRenderer {
                 let badges: Vec<super::message::Badge> = msg.badges.clone();
                 filter.accepts(&msg.content, &msg.username, &badges)
             }
-            OverlayElement::Gift(_) | OverlayElement::Image(_) => true,
+            OverlayElement::Alert(_) | OverlayElement::Gift(_) | OverlayElement::Image(_) => true,
         };
 
         if !should_display {
@@ -167,6 +167,7 @@ impl CoreRenderer {
             OverlayElement::ChatMessage(msg) => msg.id.clone(),
             OverlayElement::Gift(gift) => gift.id.clone(),
             OverlayElement::Image(image) => image.id.clone(),
+            OverlayElement::Alert(alert) => alert.id.clone(),
         };
 
         // Check window limit
@@ -196,7 +197,13 @@ impl CoreRenderer {
         let active_elements = self.active_elements.clone();
         let event_tx = self.event_tx.clone();
         let element_id_clone = element_id.clone();
-        let duration = config.window.message_duration();
+        
+        // Use custom duration if specified in alert, otherwise use global config
+        let duration = if let OverlayElement::Alert(ref a) = active.get(&element_id_clone).unwrap() {
+            a.duration.map(std::time::Duration::from_secs).unwrap_or_else(|| config.window.message_duration())
+        } else {
+            config.window.message_duration()
+        };
 
         tokio::spawn(async move {
             tokio::time::sleep(duration).await;
@@ -210,6 +217,11 @@ impl CoreRenderer {
         });
 
         Ok(element_id)
+    }
+
+    /// Process a generic Alert
+    pub async fn process_alert(&self, alert: Alert) -> Result<String, RenderError> {
+        self.queue_element(OverlayElement::Alert(alert)).await
     }
 
     /// Process a chat message
@@ -289,6 +301,3 @@ impl Clone for CoreRenderer {
     }
 }
 
-// Re-export for convenience
-#[allow(unused_imports)]
-pub use super::message::Badge;

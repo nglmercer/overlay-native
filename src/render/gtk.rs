@@ -10,7 +10,7 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 
 use super::{PlatformWindow, WindowConfig};
-use crate::core::{ChatMessageElement, GiftElement, ImageElement, OverlayElement};
+use crate::core::{Alert, ChatMessageElement, GiftElement, ImageElement, OverlayElement};
 
 /// GTK-based overlay window
 pub struct GtkWindow {
@@ -219,6 +219,113 @@ impl GtkWindow {
         })
     }
 
+    /// Create a new GTK overlay window from a generic Alert
+    pub fn from_alert(alert: &Alert, config: &WindowConfig) -> Result<Self, RenderError> {
+        let window = gtk::Window::new(gtk::WindowType::Toplevel);
+        window.set_type_hint(gdk::WindowTypeHint::Utility);
+
+        window.set_title(&format!("Overlay Alert - {}", alert.id));
+        window.set_decorated(false);
+        window.set_skip_taskbar_hint(true);
+        window.set_skip_pager_hint(true);
+        window.set_keep_above(true);
+        window.set_accept_focus(false);
+        window.set_resizable(false);
+
+        window.move_(config.position.0, config.position.1);
+        window.set_default_size(config.size.0, config.size.1);
+
+        // Apply style defaults or overrides
+        let opacity = alert.style.opacity.unwrap_or(config.opacity);
+        window.set_opacity(opacity as f64);
+
+        // Main container
+        let main_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        
+        // Apply custom alert background if specified
+        if let Some(ref bg) = alert.style.background_color {
+            // This would require dynamic CSS or set_state_flags, but for simplicity:
+            let provider = gtk::CssProvider::new();
+            let css = format!(".alert-{} {{ background-color: {}; border-radius: {}px; }}", 
+                alert.id, bg, alert.style.border_radius.unwrap_or(config.border_radius));
+            let _ = provider.load_from_data(css.as_bytes());
+            main_box.style_context().add_provider(&provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+            main_box.style_context().add_class(&format!("alert-{}", alert.id));
+        }
+
+        // Layout container
+        let layout = match alert.layout {
+            crate::core::Layout::Vertical => gtk::Box::new(gtk::Orientation::Vertical, 5),
+            crate::core::Layout::Horizontal => gtk::Box::new(gtk::Orientation::Horizontal, 8),
+            crate::core::Layout::Stacked => gtk::Box::new(gtk::Orientation::Vertical, 0), // Basic stack
+        };
+        layout.set_margin_start(alert.style.padding.unwrap_or(10) as i32);
+        layout.set_margin_end(alert.style.padding.unwrap_or(10) as i32);
+        layout.set_margin_top(5);
+        layout.set_margin_bottom(5);
+
+        for component in &alert.components {
+            match component {
+                crate::core::AlertComponent::Text { content, color, weight, size } => {
+                    let label = gtk::Label::new(None);
+                    let mut markup = String::from("<span");
+                    
+                    if let Some(c) = color {
+                        markup.push_str(&format!(" foreground=\"{}\"", c));
+                    }
+                    if let Some(w) = weight {
+                        markup.push_str(&format!(" weight=\"{}\"", w));
+                    }
+                    if let Some(s) = size {
+                        markup.push_str(&format!(" font_size=\"{}\"", s * 1024)); // Pango uses 1/1024 points
+                    }
+                    
+                    markup.push_str(&format!(">{}</span>", glib::markup_escape_text(content.as_str()).as_str()));
+                    label.set_markup(&markup);
+                    label.set_line_wrap(true);
+                    layout.add(&label);
+                }
+                crate::core::AlertComponent::Image { width, height, .. } => {
+                    let image = gtk::Image::new();
+                    if let (&Some(w), &Some(h)) = (width, height) {
+                        image.set_size_request(w as i32, h as i32);
+                    }
+                    // In a real app, we would load the URL here
+                    layout.add(&image);
+                }
+                crate::core::AlertComponent::Badge { url, name, .. } => {
+                    let badge_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+                    if let Some(_u) = url {
+                        let img = gtk::Image::new();
+                        // Load image...
+                        badge_box.add(&img);
+                    }
+                    let label = gtk::Label::new(Some(name.as_str()));
+                    badge_box.add(&label);
+                    layout.add(&badge_box);
+                }
+            }
+        }
+
+        main_box.add(&layout);
+
+        // Progress bar
+        let progress = gtk::ProgressBar::new();
+        progress.set_show_text(false);
+        progress.set_fraction(0.0);
+        main_box.add(&progress);
+
+        window.add(&main_box);
+
+        Ok(Self {
+            id: alert.id.clone(),
+            window,
+            progress,
+            created: Instant::now(),
+            duration: alert.duration.map(Duration::from_secs).unwrap_or(config.duration),
+        })
+    }
+
     /// Create from any overlay element
     pub fn from_element(
         element: &OverlayElement,
@@ -228,6 +335,7 @@ impl GtkWindow {
             OverlayElement::ChatMessage(msg) => Self::from_chat_message(msg, config),
             OverlayElement::Gift(gift) => Self::from_gift(gift, config),
             OverlayElement::Image(image) => Self::from_image(image, config),
+            OverlayElement::Alert(alert) => Self::from_alert(alert, config),
         }
     }
 

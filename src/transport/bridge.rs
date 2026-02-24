@@ -7,9 +7,89 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
-use crate::core::{ChatMessageElement, CoreRenderer, GiftElement, ImageElement, MessageFilter};
-use crate::transport::schema::IncomingMessage;
+
+use crate::core::{
+    Badge, ChatMessageElement, CoreRenderer, GiftElement, GiftType,
+    ImageElement, MessageFilter,
+};
+use crate::transport::schema::{
+    BadgePayload, ChatMessagePayload, GiftPayload, ImagePayload, IncomingMessage,
+};
 use crate::transport::websocket::WsEvent;
+
+// Conversion logic moved from core to bridge (separation of concerns)
+
+impl From<ChatMessagePayload> for ChatMessageElement {
+    fn from(payload: ChatMessagePayload) -> Self {
+        Self {
+            id: payload.get_or_generate_id(),
+            username: payload.username.clone(),
+            display_name: payload.display_name.clone(),
+            content: payload.content.clone(),
+            user_color: payload.user_color.clone(),
+            badges: payload.badges.into_iter().map(|b| b.into()).collect(),
+            platform: payload.platform.clone(),
+            timestamp: std::time::SystemTime::now(),
+            metadata: payload.metadata,
+        }
+    }
+}
+
+impl From<BadgePayload> for Badge {
+    fn from(payload: BadgePayload) -> Self {
+        Self {
+            id: payload.id.clone(),
+            name: payload.name.clone(),
+            url: payload.url.clone(),
+            title: payload.title.clone(),
+        }
+    }
+}
+
+impl From<GiftPayload> for GiftElement {
+    fn from(payload: GiftPayload) -> Self {
+        let gift_type = match payload.gift_type {
+            crate::transport::schema::GiftType::Subscription => GiftType::Subscription,
+            crate::transport::schema::GiftType::GiftSubscription => GiftType::GiftSubscription,
+            crate::transport::schema::GiftType::Bits => GiftType::Bits,
+            crate::transport::schema::GiftType::Cheer => GiftType::Cheer,
+            crate::transport::schema::GiftType::Donation => GiftType::Donation,
+            crate::transport::schema::GiftType::Other(s) => GiftType::Other(s),
+        };
+
+        Self {
+            id: format!(
+                "gift_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+            ),
+            from_user: payload.from_user,
+            to_user: payload.to_user,
+            gift_type,
+            amount: payload.amount,
+            tier: payload.tier,
+            message: payload.message,
+            timestamp: std::time::SystemTime::now(),
+        }
+    }
+}
+
+impl From<ImagePayload> for ImageElement {
+    fn from(payload: ImagePayload) -> Self {
+        Self {
+            id: payload.id.clone(),
+            name: payload.name.clone(),
+            url: payload.url.clone(),
+            is_animated: payload.is_animated,
+            width: payload.width,
+            height: payload.height,
+            sender: payload.sender,
+            timestamp: std::time::SystemTime::now(),
+        }
+    }
+}
 
 /// Bridge between transport layer and core renderer
 pub struct TransportBridge {

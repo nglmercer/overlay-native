@@ -165,39 +165,25 @@ async fn main() -> Result<()> {
                     font_size: state.config.display.font_size,
                 };
 
-                match *element {
-                    crate::core::OverlayElement::ChatMessage(ref message) => {
-                        #[cfg(unix)]
-                        if let Ok(window) = crate::render::gtk::GtkWindow::from_chat_message(
-                            message,
-                            &window_config,
-                        ) {
-                            window.show();
-                        }
+                #[cfg(unix)]
+                {
+                    if let Ok(window) = crate::render::gtk::GtkWindow::from_element(
+                        &element,
+                        &window_config,
+                    ) {
+                        window.show();
+                    }
+                }
 
-                        #[cfg(windows)]
-                        if let Ok(window) = crate::render::win32::Win32Window::from_chat_message(
+                #[cfg(windows)]
+                {
+                    // Generic element support for Windows needs to be implemented
+                    if let crate::core::OverlayElement::ChatMessage(ref message) = *element {
+                        if let Ok(_window) = crate::render::win32::Win32Window::from_chat_message(
                             message,
                             &window_config,
                         ) {
-                            // In Win32, window is usually shown inside constructor,
-                            // but we can ensure it here if needed.
-                        }
-                    }
-                    crate::core::OverlayElement::Gift(ref gift) => {
-                        #[cfg(unix)]
-                        if let Ok(window) =
-                            crate::render::gtk::GtkWindow::from_gift(gift, &window_config)
-                        {
-                            window.show();
-                        }
-                    }
-                    crate::core::OverlayElement::Image(ref image) => {
-                        #[cfg(unix)]
-                        if let Ok(window) =
-                            crate::render::gtk::GtkWindow::from_image(image, &window_config)
-                        {
-                            window.show();
+                            // Win32 handles display
                         }
                     }
                 }
