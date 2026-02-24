@@ -3,13 +3,10 @@
 //! Sends random chat messages and events to test the overlay.
 //! Run with: cargo run --bin mock_client
 
-#[cfg(unix)]
-use gtk::gdk;
-#[cfg(unix)]
-use gtk::prelude::*;
-
 use overlay_native::core::{ChatMessageElement, GiftElement};
-use overlay_native::render::{PlatformWindow, WindowConfig};
+use overlay_native::render::{
+    get_monitor_size, init_platform_backend, PlatformWindow, WindowConfig,
+};
 use overlay_native::transport::{
     ChatMessagePayload, GiftPayload, GiftType as TransportGiftType, IncomingMessage,
 };
@@ -19,6 +16,8 @@ use std::time::{Duration, Instant};
 
 #[cfg(unix)]
 use overlay_native::render::gtk::GtkWindow;
+#[cfg(windows)]
+use overlay_native::render::win32::Win32Window;
 
 fn generate_random_username() -> String {
     let prefixes = [
@@ -113,37 +112,11 @@ fn create_random_message() -> IncomingMessage {
 fn main() {
     println!("🚀 Starting Mock Client...");
 
-    #[cfg(unix)]
-    {
-        gtk::init().expect("Failed to initialize GTK");
-        let styles = gtk::CssProvider::new();
-        let _ = styles.load_from_data(include_bytes!("../../style.css"));
-        gtk::StyleContext::add_provider_for_screen(
-            &gdk::Screen::default().expect("Cannot get main screen"),
-            &styles,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
-    }
+    // Initialize platform-specific backend
+    init_platform_backend();
 
-    #[cfg(unix)]
-    let (monitor_width, monitor_height) = {
-        let display = gdk::Display::default();
-        let monitor = display
-            .as_ref()
-            .and_then(|d| d.primary_monitor().or_else(|| d.monitor(0)));
-
-        if let Some(m) = monitor {
-            let geom = m.geometry();
-            (geom.width(), geom.height())
-        } else {
-            println!("[WARN] No monitors detected, using default 1920x1080");
-            (1920, 1080)
-        }
-    };
-
-    #[cfg(windows)]
-    let (monitor_width, monitor_height) = (1920, 1080);
-
+    // Get monitor geometry
+    let (monitor_width, monitor_height) = get_monitor_size();
     println!("Monitor: {}x{}", monitor_width, monitor_height);
 
     let window_config = WindowConfig {
@@ -157,11 +130,14 @@ fn main() {
     };
 
     let num_messages = 5;
+
+    #[cfg(unix)]
     let mut active_windows: Vec<(String, GtkWindow, Instant)> = Vec::new();
+    #[cfg(windows)]
+    let mut active_windows: Vec<(String, Win32Window, Instant)> = Vec::new();
 
     for i in 1..=num_messages {
         let message = create_random_message();
-        let _ = message.validate();
 
         match message {
             IncomingMessage::ChatMessage(payload) => {
@@ -175,6 +151,14 @@ fn main() {
                     if let Ok(window) = GtkWindow::from_chat_message(&core_message, &window_config)
                     {
                         window.show();
+                        active_windows.push((core_message.id.clone(), window, Instant::now()));
+                    }
+                }
+                #[cfg(windows)]
+                {
+                    if let Ok(window) =
+                        Win32Window::from_chat_message(&core_message, &window_config)
+                    {
                         active_windows.push((core_message.id.clone(), window, Instant::now()));
                     }
                 }
@@ -192,6 +176,12 @@ fn main() {
                         active_windows.push((gift.id.clone(), window, Instant::now()));
                     }
                 }
+                #[cfg(windows)]
+                {
+                    if let Ok(window) = Win32Window::from_gift(&gift, &window_config) {
+                        active_windows.push((gift.id.clone(), window, Instant::now()));
+                    }
+                }
             }
             _ => {}
         }
@@ -200,11 +190,16 @@ fn main() {
         while delay_start.elapsed() < Duration::from_millis(1000) {
             #[cfg(unix)]
             {
-                gtk::main_iteration_do(false);
-                for (_, window, created) in active_windows.iter_mut() {
-                    let progress = (10.0 - created.elapsed().as_secs_f64()) / 10.0;
-                    window.set_progress(progress.max(0.0));
-                }
+                overlay_native::render::gtk::gtk_iteration();
+            }
+            #[cfg(windows)]
+            {
+                overlay_native::render::win32::process_messages();
+            }
+
+            for (_, window, created) in active_windows.iter_mut() {
+                let progress = (10.0 - created.elapsed().as_secs_f64()) / 10.0;
+                window.set_progress(progress.max(0.0));
             }
             std::thread::sleep(Duration::from_millis(16));
         }
@@ -213,8 +208,7 @@ fn main() {
     println!("\n✅ Done. Closing in 5s...");
     std::thread::sleep(Duration::from_secs(5));
 
-    #[cfg(unix)]
-    for (_, window, _) in active_windows {
+    for (_, window, _) in active_windows.drain(..) {
         window.close();
     }
 }

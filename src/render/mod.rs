@@ -56,6 +56,32 @@ impl Default for WindowConfig {
     }
 }
 
+/// Initialize the platform-specific rendering backend
+pub fn init_platform_backend() {
+    #[cfg(unix)]
+    if let Err(e) = gtk::init_gtk() {
+        eprintln!("[ERROR] Failed to initialize GTK: {}", e);
+    }
+}
+
+/// Get the primary monitor size (width, height)
+pub fn get_monitor_size() -> (i32, i32) {
+    #[cfg(unix)]
+    {
+        if let Some((_, _, w, h)) = gtk::get_primary_monitor_geometry() {
+            return (w, h);
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        return win32::get_primary_monitor_geometry();
+    }
+
+    // Default fallback
+    (1920, 1080)
+}
+
 // Re-export platform-specific types
 #[cfg(unix)]
 #[allow(unused_imports)]

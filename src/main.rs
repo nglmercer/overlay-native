@@ -12,21 +12,18 @@ mod core;
 mod render;
 mod transport;
 
+use anyhow::Result;
+use rand::seq::SliceRandom;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 
-use anyhow::Result;
-use rand::seq::SliceRandom;
-
-#[cfg(unix)]
-use gtk::prelude::*;
-
 use crate::config::Config;
 use crate::core::{CoreRenderer, RenderEvent};
-use crate::render::WindowConfig;
+use crate::render::{get_monitor_size, init_platform_backend, WindowConfig};
 use crate::transport::{
-    ipc::IpcConfig, ipc::IpcServer, websocket::WsConfig, websocket::WsServer, TransportBridge,
+    bridge::TransportBridge, ipc::IpcConfig, ipc::IpcServer, websocket::WsConfig,
+    websocket::WsServer,
 };
 
 /// Main application state
@@ -104,42 +101,11 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Initialize GTK for Linux
-    #[cfg(unix)]
-    {
-        gtk::init().unwrap();
-
-        let styles = gtk::CssProvider::new();
-        styles
-            .load_from_data(include_bytes!("../style.css"))
-            .expect("Cannot load styles file");
-        gtk::StyleContext::add_provider_for_screen(
-            &gdk::Screen::default().expect("Cannot get main screen"),
-            &styles,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
-    }
+    // Initialize platform-specific rendering backend
+    init_platform_backend();
 
     // Get monitor geometry
-    #[cfg(unix)]
-    let (monitor_width, monitor_height) = {
-        let display = gdk::Display::default();
-        let monitor = display
-            .as_ref()
-            .and_then(|d| d.primary_monitor().or_else(|| d.monitor(0)));
-
-        if let Some(m) = monitor {
-            let geom = m.geometry();
-            (geom.width(), geom.height())
-        } else {
-            println!("[WARN] No monitors detected, using default 1920x1080");
-            (1920, 1080)
-        }
-    };
-
-    #[cfg(windows)]
-    let (monitor_width, monitor_height) = { crate::render::win32::get_primary_monitor_geometry() };
-
+    let (monitor_width, monitor_height) = get_monitor_size();
     println!("Monitor: {}x{}", monitor_width, monitor_height);
 
     // Calculate window positions
@@ -149,8 +115,8 @@ async fn main() -> Result<()> {
         let margin = state.config.display.monitor_margin;
         let window_size = state.config.display.window_size;
 
-        let cell_width = (monitor_width - margin * 2 - window_size) / grid_size as i32;
-        let cell_height = (monitor_height - margin * 2 - window_size) / grid_size as i32;
+        let cell_width = (monitor_width - margin * 2 - window_size).max(100) / grid_size as i32;
+        let cell_height = (monitor_height - margin * 2 - window_size).max(100) / grid_size as i32;
 
         for x in 0..grid_size {
             for y in 0..grid_size {
@@ -174,10 +140,10 @@ async fn main() -> Result<()> {
     // Main loop
     loop {
         #[cfg(unix)]
-        let continue_loop = gtk::main_iteration_do(false);
+        let continue_loop = crate::render::gtk::gtk_iteration();
 
         #[cfg(windows)]
-        let continue_loop = crate::windows::process_messages();
+        let continue_loop = crate::render::win32::process_messages();
 
         if !continue_loop {
             break;
@@ -210,8 +176,12 @@ async fn main() -> Result<()> {
                         }
 
                         #[cfg(windows)]
-                        {
-                            // Windows rendering
+                        if let Ok(window) = crate::render::win32::Win32Window::from_chat_message(
+                            message,
+                            &window_config,
+                        ) {
+                            // In Win32, window is usually shown inside constructor,
+                            // but we can ensure it here if needed.
                         }
                     }
                     crate::core::OverlayElement::Gift(ref gift) => {

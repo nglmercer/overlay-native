@@ -37,11 +37,10 @@ impl GtkWindow {
         message: &ChatMessageElement,
         config: &WindowConfig,
     ) -> Result<Self, RenderError> {
-        // Use Popup window type for overlay windows on Linux
-        #[cfg(target_os = "linux")]
-        let window = gtk::Window::new(gtk::WindowType::Popup);
-        #[cfg(not(target_os = "linux"))]
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
+
+        // Use Utility/Dock hints to avoid decorations and behavior like normal windows
+        window.set_type_hint(gdk::WindowTypeHint::Utility);
 
         // Configure window
         window.set_title(&format!("Overlay - {}", message.username));
@@ -76,7 +75,7 @@ impl GtkWindow {
         username.set_markup(&username_markup);
         layout.add(&username);
 
-        // Message content as a simple label (emotes removed as requested)
+        // Message content
         let label = gtk::Label::new(Some(&message.content));
         label.set_line_wrap(true);
         label.set_max_width_chars(50);
@@ -101,12 +100,10 @@ impl GtkWindow {
 
     /// Create a new GTK overlay window from a gift event
     pub fn from_gift(gift: &GiftElement, config: &WindowConfig) -> Result<Self, RenderError> {
-        #[cfg(target_os = "linux")]
-        let window = gtk::Window::new(gtk::WindowType::Popup);
-        #[cfg(not(target_os = "linux"))]
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
+        window.set_type_hint(gdk::WindowTypeHint::Utility);
 
-        window.set_title(&format!("Overlay - Gift from {}", gift.from_user));
+        window.set_title(&format!("Overlay Gift - {}", gift.from_user));
         window.set_decorated(false);
         window.set_skip_taskbar_hint(true);
         window.set_skip_pager_hint(true);
@@ -174,10 +171,8 @@ impl GtkWindow {
 
     /// Create a new GTK overlay window from an image event
     pub fn from_image(image: &ImageElement, config: &WindowConfig) -> Result<Self, RenderError> {
-        #[cfg(target_os = "linux")]
-        let window = gtk::Window::new(gtk::WindowType::Popup);
-        #[cfg(not(target_os = "linux"))]
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
+        window.set_type_hint(gdk::WindowTypeHint::Utility);
 
         window.set_title(&format!("Overlay - Image {}", image.name));
         window.set_decorated(false);
@@ -199,7 +194,7 @@ impl GtkWindow {
 
         // Image
         let img = gtk::Image::new();
-        // TODO: Load image from URL asynchronously
+        // TODO: Load image from URL asynchronously (requires reqwest + image crate back)
         layout.add(&img);
 
         // Sender label
@@ -241,6 +236,7 @@ impl GtkWindow {
         self.window.show_all();
     }
 }
+
 impl PlatformWindow for GtkWindow {
     fn id(&self) -> &str {
         &self.id
@@ -251,7 +247,8 @@ impl PlatformWindow for GtkWindow {
     }
 
     fn is_valid(&self) -> bool {
-        self.window.get_visible()
+        // window.get_visible() is the proper way to check if it's still there
+        self.window.is_visible()
     }
 
     fn close(self) {
@@ -281,26 +278,14 @@ pub enum RenderError {
     #[error("Failed to create window: {0}")]
     WindowCreation(String),
 
-    #[error("Failed to load emote: {0}")]
-    EmoteLoad(String),
-
     #[error("GTK error: {0}")]
     Gtk(String),
-}
-
-/// Window geometry for X11 integration
-#[derive(Debug, Clone, Copy, Default)]
-pub struct WindowGeometry {
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
 }
 
 /// Get the primary monitor geometry
 pub fn get_primary_monitor_geometry() -> Option<(i32, i32, i32, i32)> {
     let display = gdk::Display::default()?;
-    let monitor = display.primary_monitor()?;
+    let monitor = display.primary_monitor().or_else(|| display.monitor(0))?;
     let geom = monitor.geometry();
     Some((geom.x(), geom.y(), geom.width(), geom.height()))
 }
@@ -311,15 +296,18 @@ pub fn init_gtk() -> Result<(), RenderError> {
 
     // Load CSS for styling
     let css_provider = gtk::CssProvider::new();
+    let css_data = include_bytes!("../../style.css");
     css_provider
-        .load_from_data(include_bytes!("../../style.css"))
+        .load_from_data(css_data)
         .map_err(|e| RenderError::Gtk(e.to_string()))?;
 
-    gtk::StyleContext::add_provider_for_screen(
-        &gdk::Screen::default().ok_or_else(|| RenderError::Gtk("No default screen".to_string()))?,
-        &css_provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
+    if let Some(screen) = gdk::Screen::default() {
+        gtk::StyleContext::add_provider_for_screen(
+            &screen,
+            &css_provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
 
     Ok(())
 }
