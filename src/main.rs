@@ -167,10 +167,9 @@ async fn main() -> Result<()> {
 
                 #[cfg(unix)]
                 {
-                    if let Ok(window) = crate::render::gtk::GtkWindow::from_element(
-                        &element,
-                        &window_config,
-                    ) {
+                    if let Ok(window) =
+                        crate::render::gtk::GtkWindow::from_element(&element, &window_config)
+                    {
                         window.show();
                     }
                 }

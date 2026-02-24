@@ -3,8 +3,7 @@
 //! Sends random chat messages and events to test the overlay.
 //! Run with: cargo run --bin mock_client
 
-
-use overlay_native::core::{Alert, Badge, OverlayElement};
+use overlay_native::core::{Alert, Badge};
 use overlay_native::render::{
     get_monitor_size, init_platform_backend, PlatformWindow, WindowConfig,
 };
@@ -142,7 +141,7 @@ fn main() {
                     "💬 [{}/{}] {}: {}",
                     i, num_messages, payload.username, payload.content
                 );
-                
+
                 let id = payload.id.clone().unwrap_or_else(|| i.to_string());
                 let alert = Alert::chat(
                     id.clone(),
@@ -154,8 +153,7 @@ fn main() {
 
                 #[cfg(unix)]
                 {
-                    if let Ok(window) = GtkWindow::from_alert(&alert, &window_config)
-                    {
+                    if let Ok(window) = GtkWindow::from_alert(&alert, &window_config) {
                         window.show();
                         active_windows.push((alert.id.clone(), window, Instant::now()));
                     }
@@ -166,7 +164,7 @@ fn main() {
                     "🎁 [{}/{}] Gift from {}",
                     i, num_messages, payload.from_user
                 );
-                
+
                 let id = format!("gift_{}", i);
                 let gift_desc = format!("a sub");
                 let alert = Alert::gift(id.clone(), payload.from_user, gift_desc, payload.message);

@@ -202,6 +202,42 @@ impl IncomingMessage {
             IncomingMessage::Ping | IncomingMessage::Status => Ok(()),
         }
     }
+
+    /// Decompose the message into its type, ID and data for dynamic processing
+    pub fn into_parts(self) -> (String, String, serde_json::Value) {
+        let serialized = serde_json::to_value(&self).unwrap_or(serde_json::Value::Null);
+        let msg_type = serialized
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let data = serialized
+            .get("data")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+
+        let id = match &self {
+            IncomingMessage::ChatMessage(p) => p.get_or_generate_id(),
+            IncomingMessage::Image(p) => p.id.clone(),
+            _ => data
+                .get("id")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .unwrap_or_else(|| Self::generate_id()),
+        };
+
+        (msg_type, id, data)
+    }
+
+    /// Generate a unique ID for messages that don't have one
+    pub fn generate_id() -> String {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        format!("msg_{}_{}", ts, rand::random::<u32>())
+    }
 }
 
 impl ChatMessagePayload {

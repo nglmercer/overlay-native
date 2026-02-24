@@ -66,7 +66,12 @@ impl AlertBuilder {
     }
 
     /// Add a badge component
-    pub fn with_badge(mut self, id: impl Into<String>, name: impl Into<String>, url: Option<String>) -> Self {
+    pub fn with_badge(
+        mut self,
+        id: impl Into<String>,
+        name: impl Into<String>,
+        url: Option<String>,
+    ) -> Self {
         self.components.push(AlertComponent::Badge {
             id: id.into(),
             name: name.into(),

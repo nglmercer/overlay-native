@@ -5,15 +5,12 @@
 //! are used after normalization by the transport layer.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::SystemTime;
 
 /// Get current system time
 fn system_time_now() -> SystemTime {
     SystemTime::now()
 }
-
-
 
 /// Unified message type for all overlay elements
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,9 +42,15 @@ pub struct Alert {
 
 impl Alert {
     /// Create a standard chat message alert
-    pub fn chat(id: String, username: String, content: String, color: Option<String>, badges: Vec<Badge>) -> Self {
+    pub fn chat(
+        id: String,
+        username: String,
+        content: String,
+        color: Option<String>,
+        badges: Vec<Badge>,
+    ) -> Self {
         let mut components = Vec::new();
-        
+
         // Add badges
         for badge in badges {
             components.push(AlertComponent::Badge {
@@ -87,7 +90,7 @@ impl Alert {
     /// Create a standard gift alert
     pub fn gift(id: String, from: String, gift_desc: String, message: Option<String>) -> Self {
         let mut components = Vec::new();
-        
+
         // Gift Icon/Header
         components.push(AlertComponent::Text {
             content: format!("🎁 {} gifted {}!", from, gift_desc),

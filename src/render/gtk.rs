@@ -33,7 +33,10 @@ pub struct GtkWindow {
 
 impl GtkWindow {
     /// Create a window from an overlay element
-    pub fn from_element(element: &OverlayElement, config: &WindowConfig) -> Result<Self, RenderError> {
+    pub fn from_element(
+        element: &OverlayElement,
+        config: &WindowConfig,
+    ) -> Result<Self, RenderError> {
         Self::from_alert(&element.0, config)
     }
 
@@ -59,15 +62,23 @@ impl GtkWindow {
 
         // Main container
         let main_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        
+
         // Apply custom alert background if specified
         if let Some(ref bg) = alert.style.background_color {
             let provider = gtk::CssProvider::new();
-            let css = format!(".alert-{} {{ background-color: {}; border-radius: {}px; }}", 
-                alert.id, bg, alert.style.border_radius.unwrap_or(config.border_radius));
+            let css = format!(
+                ".alert-{} {{ background-color: {}; border-radius: {}px; }}",
+                alert.id,
+                bg,
+                alert.style.border_radius.unwrap_or(config.border_radius)
+            );
             let _ = provider.load_from_data(css.as_bytes());
-            main_box.style_context().add_provider(&provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
-            main_box.style_context().add_class(&format!("alert-{}", alert.id));
+            main_box
+                .style_context()
+                .add_provider(&provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+            main_box
+                .style_context()
+                .add_class(&format!("alert-{}", alert.id));
         }
 
         // Layout container
@@ -83,10 +94,15 @@ impl GtkWindow {
 
         for component in &alert.components {
             match component {
-                crate::core::AlertComponent::Text { content, color, weight, size } => {
+                crate::core::AlertComponent::Text {
+                    content,
+                    color,
+                    weight,
+                    size,
+                } => {
                     let label = gtk::Label::new(None);
                     let mut markup = String::from("<span");
-                    
+
                     if let Some(c) = color {
                         markup.push_str(&format!(" foreground=\"{}\"", c));
                     }
@@ -94,10 +110,14 @@ impl GtkWindow {
                         markup.push_str(&format!(" weight=\"{}\"", w));
                     }
                     if let Some(s) = size {
-                        markup.push_str(&format!(" font_size=\"{}\"", s * 1024)); // Pango uses 1/1024 points
+                        markup.push_str(&format!(" font_size=\"{}\"", s * 1024));
+                        // Pango uses 1/1024 points
                     }
-                    
-                    markup.push_str(&format!(">{}</span>", glib::markup_escape_text(content.as_str()).as_str()));
+
+                    markup.push_str(&format!(
+                        ">{}</span>",
+                        glib::markup_escape_text(content.as_str()).as_str()
+                    ));
                     label.set_markup(&markup);
                     label.set_line_wrap(true);
                     layout.add(&label);
@@ -137,7 +157,10 @@ impl GtkWindow {
             window,
             progress,
             created: Instant::now(),
-            duration: alert.duration.map(Duration::from_secs).unwrap_or(config.duration),
+            duration: alert
+                .duration
+                .map(Duration::from_secs)
+                .unwrap_or(config.duration),
         })
     }
 

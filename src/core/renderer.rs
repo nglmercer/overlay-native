@@ -12,7 +12,7 @@ use super::config::{
     AnimationSettings, CoreConfig, DisplaySettings, MessageFilter, ProcessingSettings,
     WindowSettings,
 };
-use super::message::{Alert, OverlayElement, Badge};
+use super::message::{Alert, OverlayElement};
 
 /// Errors that can occur during rendering
 #[derive(Debug, thiserror::Error)]
@@ -90,7 +90,6 @@ pub struct RendererStats {
     pub total_errors: u64,
 }
 
-
 impl CoreRenderer {
     /// Create a new core renderer with default configuration
     pub fn new() -> Self {
@@ -146,32 +145,37 @@ impl CoreRenderer {
     /// This is the main entry point for receiving elements from transport
     pub async fn queue_element(&self, element: OverlayElement) -> Result<String, RenderError> {
         let alert = &element.0;
-        
+
         // Simple filter check for text components in the alert
         {
             let filter = self.filter.read().await;
             for comp in &alert.components {
                 if let super::message::AlertComponent::Text { content, .. } = comp {
-                    // Note: In a real system we might want original username here, 
+                    // Note: In a real system we might want original username here,
                     // but for generic alerts we just filter the content.
                     if !filter.accepts(content, "system", &[]) {
-                         let mut stats = self.stats.write().await;
-                         stats.total_filtered += 1;
-                         return Err(RenderError::InvalidMessage(
-                             "Message filtered out".to_string(),
-                         ));
+                        let mut stats = self.stats.write().await;
+                        stats.total_filtered += 1;
+                        return Err(RenderError::InvalidMessage(
+                            "Message filtered out".to_string(),
+                        ));
                     }
                 }
             }
         }
 
         let element_id = alert.id.clone();
-        
+
+        let config_guard = self.config.read().await;
+
         // Use custom duration if specified in alert, otherwise use global config
-        let duration = alert.duration.map(std::time::Duration::from_secs).unwrap_or_else(|| config.window.message_duration());
+        let duration = alert
+            .duration
+            .map(std::time::Duration::from_secs)
+            .unwrap_or_else(|| config_guard.window.message_duration());
 
         // Check window limit
-        let max_windows = config.window.max_windows;
+        let max_windows = config_guard.window.max_windows;
         let mut active = self.active_elements.write().await;
 
         if active.len() >= max_windows {
@@ -270,4 +274,3 @@ impl Clone for CoreRenderer {
         }
     }
 }
-
