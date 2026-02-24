@@ -14,8 +14,88 @@ fn system_time_now() -> SystemTime {
 
 /// Unified message type for all overlay elements
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct OverlayElement(pub Alert);
+pub enum OverlayElement {
+    ChatMessage(ChatMessageElement),
+    Gift(GiftElement),
+    Image(ImageElement),
+}
+
+impl OverlayElement {
+    /// Convert to Alert for compatibility with existing code
+    pub fn to_alert(&self) -> Alert {
+        match self {
+            OverlayElement::ChatMessage(msg) => Alert::chat(
+                msg.id.clone(),
+                msg.username.clone(),
+                msg.content.clone(),
+                msg.color.clone(),
+                msg.badges.clone(),
+            ),
+            OverlayElement::Gift(gift) => Alert::gift(
+                gift.id.clone(),
+                gift.from_user.clone(),
+                gift.gift_type.clone(),
+                gift.message.clone(),
+            ),
+            OverlayElement::Image(img) => {
+                let mut components = Vec::new();
+                if let Some(url) = &img.url {
+                    components.push(AlertComponent::Image {
+                        url: url.clone(),
+                        width: img.width,
+                        height: img.height,
+                        is_animated: false,
+                    });
+                }
+                components.push(AlertComponent::Text {
+                    content: img.name.clone(),
+                    color: None,
+                    weight: None,
+                    style: None,
+                    size: None,
+                });
+                Alert {
+                    id: img.id.clone(),
+                    components,
+                    layout: Layout::Vertical,
+                    style: AlertStyle::default(),
+                    timestamp: SystemTime::now(),
+                    duration: None,
+                }
+            }
+        }
+    }
+}
+
+/// Chat message element
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessageElement {
+    pub id: String,
+    pub username: String,
+    pub content: String,
+    pub color: Option<String>,
+    pub badges: Vec<Badge>,
+}
+
+/// Gift element
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GiftElement {
+    pub id: String,
+    pub from_user: String,
+    pub gift_type: String,
+    pub message: Option<String>,
+}
+
+/// Image element
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageElement {
+    pub id: String,
+    pub name: String,
+    pub url: Option<String>,
+    pub sender: Option<String>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+}
 
 /// Generic Alert structure for flexible overlay elements
 #[derive(Debug, Clone, Serialize, Deserialize)]

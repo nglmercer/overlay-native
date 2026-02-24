@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.83"
-ipc_lib = { path = "../../RUST_IPC" }
+ipc_lib = { path = "../ipc_lib" }
 tokio = { version = "1.37.0", features = [
     "rt-multi-thread",
     "sync",

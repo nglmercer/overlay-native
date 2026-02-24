@@ -12,7 +12,7 @@ use super::config::{
     AnimationSettings, CoreConfig, DisplaySettings, MessageFilter, ProcessingSettings,
     WindowSettings,
 };
-use super::message::{Alert, OverlayElement};
+use super::message::{Alert, AlertComponent, ChatMessageElement, OverlayElement};
 
 /// Errors that can occur during rendering
 #[derive(Debug, thiserror::Error)]
@@ -144,7 +144,7 @@ impl CoreRenderer {
     /// Process and queue an overlay element for display
     /// This is the main entry point for receiving elements from transport
     pub async fn queue_element(&self, element: OverlayElement) -> Result<String, RenderError> {
-        let alert = &element.0;
+        let alert = element.to_alert();
 
         // Simple filter check for text components in the alert
         {
@@ -153,7 +153,7 @@ impl CoreRenderer {
                 if let super::message::AlertComponent::Text { content, .. } = comp {
                     // Note: In a real system we might want original username here,
                     // but for generic alerts we just filter the content.
-                    if !filter.accepts(content, "system", &[]) {
+                    if !filter.accepts(&content, "system", &[]) {
                         let mut stats = self.stats.write().await;
                         stats.total_filtered += 1;
                         return Err(RenderError::InvalidMessage(
@@ -217,7 +217,23 @@ impl CoreRenderer {
 
     /// Process a generic Alert
     pub async fn process_alert(&self, alert: Alert) -> Result<String, RenderError> {
-        self.queue_element(OverlayElement(alert)).await
+        let element = OverlayElement::ChatMessage(ChatMessageElement {
+            id: alert.id.clone(),
+            username: "system".to_string(),
+            content: alert.components.iter()
+                .filter_map(|c| {
+                    if let AlertComponent::Text { content, .. } = c {
+                        Some(content.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" "),
+            color: None,
+            badges: vec![],
+        });
+        self.queue_element(element).await
     }
 
     /// Get all active elements

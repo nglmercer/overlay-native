@@ -7,7 +7,8 @@
 //! ## Usage
 //!
 //! ```rust
-//! use overlay_native::core::{AlertRegistry, AlertFactory, AlertContext};
+//! use overlay_native::{AlertRegistry, AlertBuilder, Alert};
+//! use overlay_native::core::AlertContext;
 //!
 //! // Create a registry
 //! let mut registry = AlertRegistry::new();
@@ -15,13 +16,18 @@
 //! // Register a custom alert type
 //! registry.register("custom_alert", |ctx| {
 //!     AlertBuilder::new(&ctx.id)
-//!         .with_styled_text(ctx.get::<String>("title").unwrap_or_default(), Some("#FF0000".to_string()), Some("bold".to_string()))
+//!         .with_styled_text(
+//!             ctx.get::<String>("title").unwrap_or_default(),
+//!             Some("#FF0000".to_string()),
+//!             Some("bold".to_string()),
+//!             None,
+//!         )
 //!         .with_text(ctx.get::<String>("message").unwrap_or_default())
 //!         .build()
 //! });
 //!
 //! // Use it later
-//! let alert = registry.create("custom_alert", AlertContext::new("my_id", [("title", "Hello"), ("message", "World")]));
+//! let alert = registry.create("custom_alert", AlertContext::new("my_id"));
 //! ```
 
 use std::collections::HashMap;
@@ -192,6 +198,9 @@ impl AlertRegistry {
     ///
     /// # Example
     /// ```rust
+    /// use overlay_native::core::{AlertRegistry, AlertContext, Alert};
+    ///
+    /// let mut registry = AlertRegistry::new();
     /// registry.register("chat_message", |ctx| {
     ///     Alert::chat(
     ///         ctx.id.clone(),
@@ -587,7 +596,7 @@ mod tests {
     fn test_with_defaults() {
         let registry = AlertRegistry::new().with_defaults();
 
-        assert!(registry.contains("chat"));
+        assert!(registry.contains("chat_message"));
         assert!(registry.contains("gift"));
         assert!(registry.contains("image"));
         assert!(registry.contains("custom"));

@@ -349,3 +349,23 @@ pub fn get_primary_monitor_geometry() -> (i32, i32) {
         (screen_width, screen_height)
     }
 }
+
+/// Process Windows messages (non-blocking)
+/// Returns false to indicate the message loop should exit
+pub fn process_messages() -> bool {
+    unsafe {
+        let mut msg: MSG = std::mem::zeroed();
+        // PeekMessage is non-blocking - returns immediately
+        if PeekMessageW(&mut msg, null_mut(), 0, 0, PM_REMOVE) != 0 {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+            if msg.message == WM_QUIT {
+                return false;
+            }
+            true
+        } else {
+            // No messages waiting
+            true
+        }
+    }
+}

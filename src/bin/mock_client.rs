@@ -230,8 +230,9 @@ fn main() {
                 overlay_native::render::win32::process_messages();
             }
 
+            #[cfg(unix)]
             for (_, window, created) in active_windows.iter_mut() {
-                let progress = (10.0 - created.elapsed().as_secs_f64()) / 10.0;
+                let progress: f64 = (10.0 - created.elapsed().as_secs_f64()) / 10.0;
                 window.set_progress(progress.max(0.0));
             }
             std::thread::sleep(Duration::from_millis(16));
@@ -241,6 +242,7 @@ fn main() {
     println!("\n✅ Done. Closing in 5s...");
     std::thread::sleep(Duration::from_secs(5));
 
+    #[cfg(unix)]
     for (_, window, _) in active_windows.drain(..) {
         window.close();
     }
