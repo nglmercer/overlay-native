@@ -340,3 +340,12 @@ pub enum RenderError {
     #[error("Failed to create window: {0}")]
     WindowCreation(String),
 }
+
+/// Get the primary monitor geometry
+pub fn get_primary_monitor_geometry() -> (i32, i32) {
+    unsafe {
+        let screen_width = GetSystemMetrics(SM_CXSCREEN);
+        let screen_height = GetSystemMetrics(SM_CYSCREEN);
+        (screen_width, screen_height)
+    }
+}

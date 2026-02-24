@@ -1,0 +1,38 @@
+{
+  "transport": {
+    "websocket_enabled": true,
+    "websocket_bind": "127.0.0.1:9001",
+    "ipc_enabled": true,
+    "ipc_socket_path": "/tmp/overlay-native.sock",
+    "max_connections": 100,
+    "strict_validation": true
+  },
+  "window": {
+    "message_duration_seconds": 10,
+    "max_windows": 100,
+    "test_message": "TEST",
+    "animation_enabled": true,
+    "fade_in_duration_ms": 300,
+    "fade_out_duration_ms": 500
+  },
+  "display": {
+    "monitor_margin": 40,
+    "window_size": 200,
+    "grid_size": 100,
+    "font_family": "Arial",
+    "font_size": 14,
+    "background_color": "#1e1e1e",
+    "text_color": "#ffffff",
+    "username_color": "#00ff00",
+    "border_radius": 8,
+    "opacity": 0.9
+  },
+  "logging": {
+    "level": "info",
+    "file_enabled": true,
+    "console_enabled": true,
+    "log_file_path": "overlay.log",
+    "max_file_size_mb": 10,
+    "max_files": 5
+  }
+}

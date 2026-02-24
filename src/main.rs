@@ -123,17 +123,22 @@ async fn main() -> Result<()> {
     // Get monitor geometry
     #[cfg(unix)]
     let (monitor_width, monitor_height) = {
-        let display = gdk::Display::default().expect("No default display");
-        let monitor = display.primary_monitor().expect("No primary monitor");
-        let geom = monitor.geometry();
-        (geom.width(), geom.height())
+        let display = gdk::Display::default();
+        let monitor = display
+            .as_ref()
+            .and_then(|d| d.primary_monitor().or_else(|| d.monitor(0)));
+
+        if let Some(m) = monitor {
+            let geom = m.geometry();
+            (geom.width(), geom.height())
+        } else {
+            println!("[WARN] No monitors detected, using default 1920x1080");
+            (1920, 1080)
+        }
     };
 
     #[cfg(windows)]
-    let (monitor_width, monitor_height) = {
-        let geom = crate::windows::get_monitor_geometry();
-        (geom.width, geom.height)
-    };
+    let (monitor_width, monitor_height) = { crate::render::win32::get_primary_monitor_geometry() };
 
     println!("Monitor: {}x{}", monitor_width, monitor_height);
 
