@@ -72,5 +72,7 @@ pub use core::{
 };
 #[cfg(unix)]
 pub use render::GtkWindow;
+#[cfg(windows)]
+pub use render::Win32Window;
 pub use render::{PlatformWindow, WindowConfig};
 pub use transport::{bridge::TransportBridge, ChatMessagePayload, GiftPayload, IncomingMessage};

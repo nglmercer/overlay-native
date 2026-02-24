@@ -87,4 +87,4 @@ pub use gtk::GtkWindow as PlatformWindowImpl;
 
 #[cfg(windows)]
 #[allow(unused_imports)]
-pub use win32::Win32Window as PlatformWindowImpl;
+pub use win32::Win32Window;

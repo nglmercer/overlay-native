@@ -132,6 +132,8 @@ fn main() {
 
     #[cfg(unix)]
     let mut active_windows: Vec<(String, GtkWindow, Instant)> = Vec::new();
+    #[cfg(windows)]
+    let mut active_windows: Vec<(String, Win32Window, Instant)> = Vec::new();
 
     for i in 1..=num_messages {
         // Force last message to be a premium gift for demonstration
@@ -169,6 +171,12 @@ fn main() {
                 {
                     if let Ok(window) = GtkWindow::from_alert(&alert, &window_config) {
                         window.show();
+                        active_windows.push((alert.id.clone(), window, Instant::now()));
+                    }
+                }
+                #[cfg(windows)]
+                {
+                    if let Ok(window) = Win32Window::from_alert(&alert, &window_config) {
                         active_windows.push((alert.id.clone(), window, Instant::now()));
                     }
                 }
@@ -215,6 +223,12 @@ fn main() {
                         active_windows.push((alert.id.clone(), window, Instant::now()));
                     }
                 }
+                #[cfg(windows)]
+                {
+                    if let Ok(window) = Win32Window::from_alert(&alert, &window_config) {
+                        active_windows.push((alert.id.clone(), window, Instant::now()));
+                    }
+                }
             }
             _ => {}
         }
@@ -235,6 +249,11 @@ fn main() {
                 let progress: f64 = (10.0 - created.elapsed().as_secs_f64()) / 10.0;
                 window.set_progress(progress.max(0.0));
             }
+            #[cfg(windows)]
+            for (_, window, created) in active_windows.iter_mut() {
+                let progress: f64 = (10.0 - created.elapsed().as_secs_f64()) / 10.0;
+                window.set_progress(progress.max(0.0));
+            }
             std::thread::sleep(Duration::from_millis(16));
         }
     }
@@ -243,6 +262,10 @@ fn main() {
     std::thread::sleep(Duration::from_secs(5));
 
     #[cfg(unix)]
+    for (_, window, _) in active_windows.drain(..) {
+        window.close();
+    }
+    #[cfg(windows)]
     for (_, window, _) in active_windows.drain(..) {
         window.close();
     }

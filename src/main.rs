@@ -21,6 +21,8 @@ use tokio::sync::{mpsc, RwLock};
 use crate::config::Config;
 use crate::core::{CoreRenderer, RenderEvent};
 use crate::render::{get_monitor_size, init_platform_backend, WindowConfig};
+#[cfg(windows)]
+use crate::render::win32::Win32Window;
 use crate::transport::{
     bridge::TransportBridge, ipc::IpcConfig, ipc::IpcServer, websocket::WsConfig,
     websocket::WsServer,
@@ -148,6 +150,11 @@ async fn main() -> Result<()> {
     };
 
     let mut position_idx = 0;
+    
+    // Store active windows for platform that needs explicit management
+    #[cfg(windows)]
+    let mut active_windows: Vec<Win32Window> = Vec::new();
+    
     println!("🚀 Starting main event loop...");
 
     // Setup Render Event Receiver
@@ -196,7 +203,9 @@ async fn main() -> Result<()> {
 
                 #[cfg(windows)]
                 {
-                    // Generic element support for Windows needs to be implemented
+                    if let Ok(window) = Win32Window::from_element(&element, &window_config) {
+                        active_windows.push(window);
+                    }
                 }
             }
         }
