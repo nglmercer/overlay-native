@@ -174,7 +174,7 @@ fn main() {
             }
             IncomingMessage::Gift(payload) => {
                 let id = format!("gift_{}", i);
-                
+
                 // Check if it's our special premium gift
                 let alert = if let TransportGiftType::Other(ref name) = payload.gift_type {
                     if name == "Cofre Legendario" {
@@ -188,7 +188,7 @@ fn main() {
                             payload.from_user,
                             payload.amount.unwrap_or(1).to_string(),
                             "Cofres Legendarios".to_string(),
-                            Some("https://img.icons8.com/isometric/512/gift.png".to_string()) // Premium gift icon
+                            Some("https://img.icons8.com/isometric/512/gift.png".to_string()), // Premium gift icon
                         )
                     } else {
                         println!(
@@ -203,7 +203,7 @@ fn main() {
                         "🎁 [{}/{}] Gift from {}",
                         i, num_messages, payload.from_user
                     );
-                    let gift_desc = format!("a sub");
+                    let gift_desc = "a sub".to_string();
                     Alert::gift(id.clone(), payload.from_user, gift_desc, payload.message)
                 };
 

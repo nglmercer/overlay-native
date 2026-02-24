@@ -7,9 +7,7 @@ pub mod message;
 pub mod patterns;
 pub mod renderer;
 
-pub use builder::*;
 pub use config::*;
 pub use factory::*;
 pub use message::*;
-pub use patterns::*;
 pub use renderer::*;

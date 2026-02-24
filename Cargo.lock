@@ -1151,6 +1151,7 @@ dependencies = [
  "criterion",
  "futures",
  "gdk",
+ "gdk-pixbuf",
  "glib",
  "glib-macros",
  "gtk",

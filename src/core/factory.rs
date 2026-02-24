@@ -345,11 +345,16 @@ impl AlertRegistry {
 
         // Register premium gift alert (using the Spanish template example)
         self.register("gift_premium", |ctx| {
-            let from = ctx.get::<String>("from_user").unwrap_or_else(|| "Anonymous".to_string());
+            let from = ctx
+                .get::<String>("from_user")
+                .unwrap_or_else(|| "Anonymous".to_string());
             let amount = ctx.get::<u32>("amount").unwrap_or(1).to_string();
-            let gift_name = ctx.get::<String>("gift_name").or_else(|| ctx.get::<String>("gift_type")).unwrap_or_else(|| "gift".to_string());
+            let gift_name = ctx
+                .get::<String>("gift_name")
+                .or_else(|| ctx.get::<String>("gift_type"))
+                .unwrap_or_else(|| "gift".to_string());
             let image_url = ctx.get_string("image_url");
-            
+
             crate::core::patterns::AlertTemplates::premium_gift(
                 ctx.id.clone(),
                 from,
@@ -378,8 +383,12 @@ impl AlertRegistry {
             for (key, value) in ctx.data() {
                 if let Some(text) = value.as_str() {
                     if key != "id" && key != "type" {
-                        builder =
-                            builder.with_styled_text(format!("{}: {}", key, text), None, None, None);
+                        builder = builder.with_styled_text(
+                            format!("{}: {}", key, text),
+                            None,
+                            None,
+                            None,
+                        );
                     }
                 }
             }
@@ -519,6 +528,7 @@ mod tests {
                     format!("Hello, {}!", name),
                     Some("#00FF00".to_string()),
                     Some("bold".to_string()),
+                    None,
                 )
                 .build()
         });

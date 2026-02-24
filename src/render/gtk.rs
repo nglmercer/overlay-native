@@ -126,10 +126,7 @@ impl GtkWindow {
                     layout.add(&label);
                 }
                 crate::core::AlertComponent::Image {
-                    url,
-                    width,
-                    height,
-                    ..
+                    url, width, height, ..
                 } => {
                     let image = gtk::Image::new();
                     let w = width.unwrap_or(64) as i32;
@@ -142,12 +139,10 @@ impl GtkWindow {
                                 let loader = gdk_pixbuf::PixbufLoader::new();
                                 if loader.write(&bytes).is_ok() && loader.close().is_ok() {
                                     if let Some(pixbuf) = loader.pixbuf() {
-                                        let scaled = pixbuf.scale_simple(
-                                            w,
-                                            h,
-                                            gdk_pixbuf::InterpType::Bilinear,
-                                        );
-                                        image.set_from_pixbuf(scaled.as_ref());
+                                        let scaled = pixbuf
+                                            .scale_simple(w, h, gdk_pixbuf::InterpType::Bilinear)
+                                            .expect("Failed to scale pixbuf");
+                                        image.set_from_pixbuf(Some(&scaled));
                                     }
                                 }
                             }

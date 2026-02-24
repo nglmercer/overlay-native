@@ -223,7 +223,7 @@ impl IncomingMessage {
                 .get("id")
                 .and_then(|v| v.as_str())
                 .map(String::from)
-                .unwrap_or_else(|| Self::generate_id()),
+                .unwrap_or_else(Self::generate_id),
         };
 
         (msg_type, id, data)

@@ -26,7 +26,12 @@ impl AlertTemplates {
 
         // Username and message in a specific style
         builder
-            .with_styled_text(format!("{}: ", username), color, Some("bold".to_string()), None)
+            .with_styled_text(
+                format!("{}: ", username),
+                color,
+                Some("bold".to_string()),
+                None,
+            )
             .with_text(content)
             .with_style(AlertStyle {
                 padding: Some(12),
@@ -41,7 +46,12 @@ impl AlertTemplates {
     pub fn notification_banner(id: String, title: String, subtitle: Option<String>) -> Alert {
         let mut builder = AlertBuilder::new(id)
             .with_layout(Layout::Vertical)
-            .with_styled_text(title, Some("#FFFFFF".to_string()), Some("bold".to_string()), None);
+            .with_styled_text(
+                title,
+                Some("#FFFFFF".to_string()),
+                Some("bold".to_string()),
+                None,
+            );
 
         if let Some(sub) = subtitle {
             builder = builder.with_styled_text(sub, Some("#CCCCCC".to_string()), None, None);
@@ -108,7 +118,9 @@ impl AlertTemplates {
             .with_style(AlertStyle {
                 padding: Some(24),
                 border_radius: Some(15),
-                background_color: Some("linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)".to_string()),
+                background_color: Some(
+                    "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)".to_string(),
+                ),
                 border_color: Some("#FFD700".to_string()),
                 ..Default::default()
             })
