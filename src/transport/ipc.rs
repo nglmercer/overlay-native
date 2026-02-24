@@ -1,6 +1,6 @@
-use tokio::sync::mpsc;
 use crate::transport::schema::IncomingMessage;
 use crate::transport::websocket::WsEvent;
+use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub struct IpcConfig {
@@ -10,9 +10,13 @@ pub struct IpcConfig {
 impl Default for IpcConfig {
     fn default() -> Self {
         #[cfg(unix)]
-        return Self { socket_path: "/tmp/overlay-native.sock".to_string() };
+        return Self {
+            socket_path: "/tmp/overlay-native.sock".to_string(),
+        };
         #[cfg(windows)]
-        return Self { socket_path: r"\\.\pipe\overlay-native".to_string() };
+        return Self {
+            socket_path: r"\\.\pipe\overlay-native".to_string(),
+        };
     }
 }
 
@@ -39,7 +43,10 @@ impl IpcServer {
         use tokio::net::UnixListener;
         let _ = std::fs::remove_file(&self.config.socket_path);
         let listener = UnixListener::bind(&self.config.socket_path)?;
-        println!("[IPC] 🔌 Unix socket listening on: {}", self.config.socket_path);
+        println!(
+            "[IPC] 🔌 Unix socket listening on: {}",
+            self.config.socket_path
+        );
 
         let event_tx = self.event_tx;
         loop {
@@ -57,11 +64,16 @@ impl IpcServer {
     #[cfg(windows)]
     async fn start_windows(self) -> anyhow::Result<()> {
         use tokio::net::windows::named_pipe::ServerOptions;
-        println!("[IPC] 🔌 Named Pipe listening on: {}", self.config.socket_path);
+        println!(
+            "[IPC] 🔌 Named Pipe listening on: {}",
+            self.config.socket_path
+        );
         let event_tx = self.event_tx;
         let pipe_name = self.config.socket_path.clone();
         loop {
-            let server = ServerOptions::new().first_pipe_instance(false).create(&pipe_name)?;
+            let server = ServerOptions::new()
+                .first_pipe_instance(false)
+                .create(&pipe_name)?;
             server.connect().await?;
             let tx = event_tx.clone();
             tokio::spawn(async move {
@@ -74,7 +86,10 @@ impl IpcServer {
 }
 
 #[cfg(unix)]
-async fn handle_unix_connection(stream: tokio::net::UnixStream, event_tx: mpsc::UnboundedSender<WsEvent>) -> anyhow::Result<()> {
+async fn handle_unix_connection(
+    stream: tokio::net::UnixStream,
+    event_tx: mpsc::UnboundedSender<WsEvent>,
+) -> anyhow::Result<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let (reader, mut writer) = tokio::io::split(stream);
     let mut lines = BufReader::new(reader).lines();
@@ -85,7 +100,10 @@ async fn handle_unix_connection(stream: tokio::net::UnixStream, event_tx: mpsc::
 }
 
 #[cfg(windows)]
-async fn handle_named_pipe_connection(pipe: tokio::net::windows::named_pipe::NamedPipeServer, event_tx: mpsc::UnboundedSender<WsEvent>) -> anyhow::Result<()> {
+async fn handle_named_pipe_connection(
+    pipe: tokio::net::windows::named_pipe::NamedPipeServer,
+    event_tx: mpsc::UnboundedSender<WsEvent>,
+) -> anyhow::Result<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let (reader, mut writer) = tokio::io::split(pipe);
     let mut lines = BufReader::new(reader).lines();
@@ -98,7 +116,7 @@ async fn handle_named_pipe_connection(pipe: tokio::net::windows::named_pipe::Nam
 async fn process_line<W: tokio::io::AsyncWrite + Unpin>(
     line: &str,
     writer: &mut W,
-    event_tx: &mpsc::UnboundedSender<WsEvent>
+    event_tx: &mpsc::UnboundedSender<WsEvent>,
 ) -> anyhow::Result<()> {
     use tokio::io::AsyncWriteExt;
     match IncomingMessage::parse_and_validate(line) {

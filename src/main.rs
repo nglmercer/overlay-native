@@ -180,55 +180,52 @@ async fn main() -> Result<()> {
 
         // Process renderer events
         while let Ok(event) = render_rx.try_recv() {
-            match event {
-                RenderEvent::ElementQueued(element) => {
-                    let pos = positions[position_idx];
-                    position_idx = (position_idx + 1) % positions.len();
+            if let RenderEvent::ElementQueued(element) = event {
+                let pos = positions[position_idx];
+                position_idx = (position_idx + 1) % positions.len();
 
-                    let window_config = WindowConfig {
-                        position: pos,
-                        size: (state.config.display.window_size, 80),
-                        duration: Duration::from_secs(state.config.window.message_duration_seconds),
-                        opacity: state.config.display.opacity,
-                        border_radius: state.config.display.border_radius,
-                        font_family: state.config.display.font_family.clone(),
-                        font_size: state.config.display.font_size,
-                    };
+                let window_config = WindowConfig {
+                    position: pos,
+                    size: (state.config.display.window_size, 80),
+                    duration: Duration::from_secs(state.config.window.message_duration_seconds),
+                    opacity: state.config.display.opacity,
+                    border_radius: state.config.display.border_radius,
+                    font_family: state.config.display.font_family.clone(),
+                    font_size: state.config.display.font_size,
+                };
 
-                    match *element {
-                        crate::core::OverlayElement::ChatMessage(ref message) => {
-                            #[cfg(unix)]
-                            if let Ok(window) = crate::render::gtk::GtkWindow::from_chat_message(
-                                message,
-                                &window_config,
-                            ) {
-                                window.show();
-                            }
-
-                            #[cfg(windows)]
-                            {
-                                // Windows rendering
-                            }
+                match *element {
+                    crate::core::OverlayElement::ChatMessage(ref message) => {
+                        #[cfg(unix)]
+                        if let Ok(window) = crate::render::gtk::GtkWindow::from_chat_message(
+                            message,
+                            &window_config,
+                        ) {
+                            window.show();
                         }
-                        crate::core::OverlayElement::Gift(ref gift) => {
-                            #[cfg(unix)]
-                            if let Ok(window) =
-                                crate::render::gtk::GtkWindow::from_gift(gift, &window_config)
-                            {
-                                window.show();
-                            }
+
+                        #[cfg(windows)]
+                        {
+                            // Windows rendering
                         }
-                        crate::core::OverlayElement::Image(ref image) => {
-                            #[cfg(unix)]
-                            if let Ok(window) =
-                                crate::render::gtk::GtkWindow::from_image(image, &window_config)
-                            {
-                                window.show();
-                            }
+                    }
+                    crate::core::OverlayElement::Gift(ref gift) => {
+                        #[cfg(unix)]
+                        if let Ok(window) =
+                            crate::render::gtk::GtkWindow::from_gift(gift, &window_config)
+                        {
+                            window.show();
+                        }
+                    }
+                    crate::core::OverlayElement::Image(ref image) => {
+                        #[cfg(unix)]
+                        if let Ok(window) =
+                            crate::render::gtk::GtkWindow::from_image(image, &window_config)
+                        {
+                            window.show();
                         }
                     }
                 }
-                _ => {}
             }
         }
 
