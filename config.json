@@ -3,7 +3,7 @@
     "websocket_enabled": true,
     "websocket_bind": "127.0.0.1:9001",
     "ipc_enabled": true,
-    "ipc_socket_path": "/tmp/overlay-native.sock",
+    "ipc_socket_path": "overlay-native",
     "max_connections": 100,
     "strict_validation": true
   },

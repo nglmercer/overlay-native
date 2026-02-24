@@ -1,5 +1,6 @@
 use crate::transport::schema::IncomingMessage;
 use crate::transport::websocket::WsEvent;
+use ipc_lib::{CommunicationMessage, ProtocolType, SingleInstanceApp};
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
@@ -9,14 +10,9 @@ pub struct IpcConfig {
 
 impl Default for IpcConfig {
     fn default() -> Self {
-        #[cfg(unix)]
-        return Self {
-            socket_path: "/tmp/overlay-native.sock".to_string(),
-        };
-        #[cfg(windows)]
-        return Self {
-            socket_path: r"\\.\pipe\overlay-native".to_string(),
-        };
+        Self {
+            socket_path: "overlay-native".to_string(),
+        }
     }
 }
 
@@ -31,107 +27,82 @@ impl IpcServer {
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
-        #[cfg(unix)]
-        let _ = self.start_unix().await;
-        #[cfg(windows)]
-        let _ = self.start_windows().await;
-        Ok(())
-    }
+        let identifier = self.config.socket_path.clone();
+        let event_tx = self.event_tx.clone();
 
-    #[cfg(unix)]
-    async fn start_unix(self) -> anyhow::Result<()> {
-        use tokio::net::UnixListener;
-        let _ = std::fs::remove_file(&self.config.socket_path);
-        let listener = UnixListener::bind(&self.config.socket_path)?;
-        println!(
-            "[IPC] 🔌 Unix socket listening on: {}",
-            self.config.socket_path
-        );
+        println!("[IPC] 🚀 Initializing IPC Server with identifier: {}", identifier);
 
-        let event_tx = self.event_tx;
-        loop {
-            if let Ok((stream, _)) = listener.accept().await {
-                let tx = event_tx.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = handle_unix_connection(stream, tx).await {
-                        eprintln!("[IPC] Unix connection error: {}", e);
-                    }
+        let mut app = SingleInstanceApp::new(&identifier).on_message(move |msg: CommunicationMessage| {
+            // Log message reception
+            println!("[IPC] 📩 Received msg type: '{}' from '{}'", msg.message_type, msg.source_id);
+
+            // We support two ways of receiving messages:
+            // 1. message_type is the schema type (chat_message, etc.) and payload is the data
+            // 2. payload itself is the full IncomingMessage JSON
+            
+            let incoming_result = if msg.message_type == "chat_message" || msg.message_type == "gift" || msg.message_type == "image" {
+                // Wrap payload into a tagged JSON for IncomingMessage
+                let wrapped = serde_json::json!({
+                    "type": msg.message_type,
+                    "data": msg.payload
                 });
-            }
-        }
-    }
+                serde_json::from_value::<IncomingMessage>(wrapped)
+            } else {
+                // Try parsing the payload directly as IncomingMessage
+                serde_json::from_value::<IncomingMessage>(msg.payload.clone())
+            };
 
-    #[cfg(windows)]
-    async fn start_windows(self) -> anyhow::Result<()> {
-        use tokio::net::windows::named_pipe::ServerOptions;
-        println!(
-            "[IPC] 🔌 Named Pipe listening on: {}",
-            self.config.socket_path
-        );
-        let event_tx = self.event_tx;
-        let pipe_name = self.config.socket_path.clone();
-        loop {
-            let server = ServerOptions::new()
-                .first_pipe_instance(false)
-                .create(&pipe_name)?;
-            server.connect().await?;
-            let tx = event_tx.clone();
-            tokio::spawn(async move {
-                if let Err(e) = handle_named_pipe_connection(server, tx).await {
-                    eprintln!("[IPC] Named Pipe error: {}", e);
+            match incoming_result {
+                Ok(incoming) => {
+                    // Forward to the bridge
+                    if let Err(e) = event_tx.send(WsEvent::Message(Box::new(incoming.clone()))) {
+                        eprintln!("[IPC] ❌ Failed to forward message to bridge: {}", e);
+                    }
+
+                    // Handle Ack if it's a chat message (maintaining compatibility with overlay-native expectation)
+                    if let IncomingMessage::ChatMessage(ref p) = incoming {
+                        let id = p.get_or_generate_id();
+                        return Some(CommunicationMessage::new("ack", serde_json::json!({ "id": id })));
+                    }
+
+                    Some(CommunicationMessage::new("success", serde_json::json!({ "status": "processed" })))
                 }
-            });
-        }
-    }
-}
-
-#[cfg(unix)]
-async fn handle_unix_connection(
-    stream: tokio::net::UnixStream,
-    event_tx: mpsc::UnboundedSender<WsEvent>,
-) -> anyhow::Result<()> {
-    use tokio::io::{AsyncBufReadExt, BufReader};
-    let (reader, mut writer) = tokio::io::split(stream);
-    let mut lines = BufReader::new(reader).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        process_line(&line, &mut writer, &event_tx).await?;
-    }
-    Ok(())
-}
-
-#[cfg(windows)]
-async fn handle_named_pipe_connection(
-    pipe: tokio::net::windows::named_pipe::NamedPipeServer,
-    event_tx: mpsc::UnboundedSender<WsEvent>,
-) -> anyhow::Result<()> {
-    use tokio::io::{AsyncBufReadExt, BufReader};
-    let (reader, mut writer) = tokio::io::split(pipe);
-    let mut lines = BufReader::new(reader).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        process_line(&line, &mut writer, &event_tx).await?;
-    }
-    Ok(())
-}
-
-async fn process_line<W: tokio::io::AsyncWrite + Unpin>(
-    line: &str,
-    writer: &mut W,
-    event_tx: &mpsc::UnboundedSender<WsEvent>,
-) -> anyhow::Result<()> {
-    use tokio::io::AsyncWriteExt;
-    match IncomingMessage::parse_and_validate(line) {
-        Ok(msg) => {
-            if let IncomingMessage::ChatMessage(ref payload) = msg {
-                let id = payload.get_or_generate_id();
-                let ack = format!("{{\"type\":\"ack\",\"data\":{{\"id\":\"{}\"}}}}\n", id);
-                let _ = writer.write_all(ack.as_bytes()).await;
+                Err(e) => {
+                    eprintln!("[IPC] ⚠️ Failed to parse incoming message: {}", e);
+                    Some(CommunicationMessage::new("error", serde_json::json!({
+                        "code": "VALIDATION_ERROR",
+                        "message": e.to_string()
+                    })))
+                }
             }
-            let _ = event_tx.send(WsEvent::Message(Box::new(msg)));
+        });
+
+        // Configure protocol based on platform
+        #[cfg(unix)]
+        { 
+            app = app.with_protocol(ProtocolType::UnixSocket); 
         }
-        Err(e) => {
-            let error = format!("{{\"type\":\"error\",\"data\":{{\"code\":\"VALIDATION_ERROR\",\"message\":\"{}\"}}}}\n", e.to_string().replace('"', "\\\""));
-            let _ = writer.write_all(error.as_bytes()).await;
+        #[cfg(windows)]
+        { 
+            app = app.with_protocol(ProtocolType::FileBased); // Use FileBased on Windows until NamedPipe is ready in ipc_lib
+        }
+
+        match app.enforce_single_instance().await {
+            Ok(true) => {
+                println!("[IPC] ✅ Server is now primary and listening for messages");
+                // Keep the server alive. SingleInstanceApp manages the background tasks.
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+                }
+            }
+            Ok(false) => {
+                println!("[IPC] ℹ️ Another instance is already running. This instance will act as a client.");
+                // In the context of overlay-native, we usually want only one server.
+                Err(anyhow::anyhow!("Overlay-native is already running (Single instance enforcement)"))
+            }
+            Err(e) => {
+                Err(anyhow::anyhow!("Failed to start IPC server: {}", e))
+            }
         }
     }
-    Ok(())
 }

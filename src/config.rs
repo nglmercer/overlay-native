@@ -63,7 +63,7 @@ impl Default for TransportConfig {
             websocket_enabled: true,
             websocket_bind: "127.0.0.1:9001".to_string(),
             ipc_enabled: true,
-            ipc_socket_path: "/tmp/overlay-native.sock".to_string(),
+            ipc_socket_path: "overlay-native".to_string(),
             max_connections: 100,
             strict_validation: true,
         }
