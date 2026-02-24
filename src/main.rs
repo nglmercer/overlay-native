@@ -178,14 +178,6 @@ async fn main() -> Result<()> {
                 #[cfg(windows)]
                 {
                     // Generic element support for Windows needs to be implemented
-                    if let crate::core::OverlayElement::ChatMessage(ref message) = *element {
-                        if let Ok(_window) = crate::render::win32::Win32Window::from_chat_message(
-                            message,
-                            &window_config,
-                        ) {
-                            // Win32 handles display
-                        }
-                    }
                 }
             }
         }

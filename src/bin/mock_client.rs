@@ -3,7 +3,8 @@
 //! Sends random chat messages and events to test the overlay.
 //! Run with: cargo run --bin mock_client
 
-use overlay_native::core::{ChatMessageElement, GiftElement};
+
+use overlay_native::core::{Alert, Badge, OverlayElement};
 use overlay_native::render::{
     get_monitor_size, init_platform_backend, PlatformWindow, WindowConfig,
 };
@@ -61,11 +62,11 @@ fn generate_random_color() -> String {
     colors.choose(&mut rng).unwrap().to_string()
 }
 
-fn generate_random_badges() -> Vec<overlay_native::transport::BadgePayload> {
+fn generate_random_badges() -> Vec<Badge> {
     let mut rng = rand::thread_rng();
     let mut badges = Vec::new();
     if rng.gen_bool(0.4) {
-        badges.push(overlay_native::transport::BadgePayload {
+        badges.push(Badge {
             id: "subscriber".to_string(),
             name: "Subscriber".to_string(),
             url: Some(
@@ -85,7 +86,7 @@ fn create_random_chat_payload() -> ChatMessagePayload {
         display_name: None,
         content: generate_random_message(),
         user_color: Some(generate_random_color()),
-        badges: generate_random_badges(),
+        badges: vec![], // simplified badges for mock
         platform: Some("mock".to_string()),
         channel: Some("test".to_string()),
         metadata: std::collections::HashMap::new(),
@@ -112,10 +113,8 @@ fn create_random_message() -> IncomingMessage {
 fn main() {
     println!("🚀 Starting Mock Client...");
 
-    // Initialize platform-specific backend
     init_platform_backend();
 
-    // Get monitor geometry
     let (monitor_width, monitor_height) = get_monitor_size();
     println!("Monitor: {}x{}", monitor_width, monitor_height);
 
@@ -133,8 +132,6 @@ fn main() {
 
     #[cfg(unix)]
     let mut active_windows: Vec<(String, GtkWindow, Instant)> = Vec::new();
-    #[cfg(windows)]
-    let mut active_windows: Vec<(String, Win32Window, Instant)> = Vec::new();
 
     for i in 1..=num_messages {
         let message = create_random_message();
@@ -145,21 +142,22 @@ fn main() {
                     "💬 [{}/{}] {}: {}",
                     i, num_messages, payload.username, payload.content
                 );
-                let core_message: ChatMessageElement = payload.into();
+                
+                let id = payload.id.clone().unwrap_or_else(|| i.to_string());
+                let alert = Alert::chat(
+                    id.clone(),
+                    payload.username,
+                    payload.content,
+                    payload.user_color,
+                    generate_random_badges(),
+                );
+
                 #[cfg(unix)]
                 {
-                    if let Ok(window) = GtkWindow::from_chat_message(&core_message, &window_config)
+                    if let Ok(window) = GtkWindow::from_alert(&alert, &window_config)
                     {
                         window.show();
-                        active_windows.push((core_message.id.clone(), window, Instant::now()));
-                    }
-                }
-                #[cfg(windows)]
-                {
-                    if let Ok(window) =
-                        Win32Window::from_chat_message(&core_message, &window_config)
-                    {
-                        active_windows.push((core_message.id.clone(), window, Instant::now()));
+                        active_windows.push((alert.id.clone(), window, Instant::now()));
                     }
                 }
             }
@@ -168,18 +166,16 @@ fn main() {
                     "🎁 [{}/{}] Gift from {}",
                     i, num_messages, payload.from_user
                 );
-                let gift: GiftElement = payload.into();
+                
+                let id = format!("gift_{}", i);
+                let gift_desc = format!("a sub");
+                let alert = Alert::gift(id.clone(), payload.from_user, gift_desc, payload.message);
+
                 #[cfg(unix)]
                 {
-                    if let Ok(window) = GtkWindow::from_gift(&gift, &window_config) {
+                    if let Ok(window) = GtkWindow::from_alert(&alert, &window_config) {
                         window.show();
-                        active_windows.push((gift.id.clone(), window, Instant::now()));
-                    }
-                }
-                #[cfg(windows)]
-                {
-                    if let Ok(window) = Win32Window::from_gift(&gift, &window_config) {
-                        active_windows.push((gift.id.clone(), window, Instant::now()));
+                        active_windows.push((alert.id.clone(), window, Instant::now()));
                     }
                 }
             }

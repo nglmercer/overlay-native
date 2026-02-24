@@ -12,7 +12,7 @@ use super::config::{
     AnimationSettings, CoreConfig, DisplaySettings, MessageFilter, ProcessingSettings,
     WindowSettings,
 };
-use super::message::{Alert, ChatMessageElement, GiftElement, OverlayElement, Badge};
+use super::message::{Alert, OverlayElement, Badge};
 
 /// Errors that can occur during rendering
 #[derive(Debug, thiserror::Error)]
@@ -90,6 +90,7 @@ pub struct RendererStats {
     pub total_errors: u64,
 }
 
+
 impl CoreRenderer {
     /// Create a new core renderer with default configuration
     pub fn new() -> Self {
@@ -144,34 +145,32 @@ impl CoreRenderer {
     /// Process and queue an overlay element for display
     /// This is the main entry point for receiving elements from transport
     pub async fn queue_element(&self, element: OverlayElement) -> Result<String, RenderError> {
-        // Apply filters based on element type
-        let should_display = match &element {
-            OverlayElement::ChatMessage(msg) => {
-                let filter = self.filter.read().await;
-                let badges: Vec<super::message::Badge> = msg.badges.clone();
-                filter.accepts(&msg.content, &msg.username, &badges)
+        let alert = &element.0;
+        
+        // Simple filter check for text components in the alert
+        {
+            let filter = self.filter.read().await;
+            for comp in &alert.components {
+                if let super::message::AlertComponent::Text { content, .. } = comp {
+                    // Note: In a real system we might want original username here, 
+                    // but for generic alerts we just filter the content.
+                    if !filter.accepts(content, "system", &[]) {
+                         let mut stats = self.stats.write().await;
+                         stats.total_filtered += 1;
+                         return Err(RenderError::InvalidMessage(
+                             "Message filtered out".to_string(),
+                         ));
+                    }
+                }
             }
-            OverlayElement::Alert(_) | OverlayElement::Gift(_) | OverlayElement::Image(_) => true,
-        };
-
-        if !should_display {
-            let mut stats = self.stats.write().await;
-            stats.total_filtered += 1;
-            return Err(RenderError::InvalidMessage(
-                "Message filtered out".to_string(),
-            ));
         }
 
-        // Get element ID
-        let element_id = match &element {
-            OverlayElement::ChatMessage(msg) => msg.id.clone(),
-            OverlayElement::Gift(gift) => gift.id.clone(),
-            OverlayElement::Image(image) => image.id.clone(),
-            OverlayElement::Alert(alert) => alert.id.clone(),
-        };
+        let element_id = alert.id.clone();
+        
+        // Use custom duration if specified in alert, otherwise use global config
+        let duration = alert.duration.map(std::time::Duration::from_secs).unwrap_or_else(|| config.window.message_duration());
 
         // Check window limit
-        let config = self.config.read().await;
         let max_windows = config.window.max_windows;
         let mut active = self.active_elements.write().await;
 
@@ -197,13 +196,6 @@ impl CoreRenderer {
         let active_elements = self.active_elements.clone();
         let event_tx = self.event_tx.clone();
         let element_id_clone = element_id.clone();
-        
-        // Use custom duration if specified in alert, otherwise use global config
-        let duration = if let OverlayElement::Alert(ref a) = active.get(&element_id_clone).unwrap() {
-            a.duration.map(std::time::Duration::from_secs).unwrap_or_else(|| config.window.message_duration())
-        } else {
-            config.window.message_duration()
-        };
 
         tokio::spawn(async move {
             tokio::time::sleep(duration).await;
@@ -221,29 +213,7 @@ impl CoreRenderer {
 
     /// Process a generic Alert
     pub async fn process_alert(&self, alert: Alert) -> Result<String, RenderError> {
-        self.queue_element(OverlayElement::Alert(alert)).await
-    }
-
-    /// Process a chat message
-    pub async fn process_chat_message(
-        &self,
-        message: ChatMessageElement,
-    ) -> Result<String, RenderError> {
-        self.queue_element(OverlayElement::ChatMessage(message))
-            .await
-    }
-
-    /// Process a gift event
-    pub async fn process_gift(&self, gift: GiftElement) -> Result<String, RenderError> {
-        self.queue_element(OverlayElement::Gift(gift)).await
-    }
-
-    /// Process an image event
-    pub async fn process_image(
-        &self,
-        image: super::message::ImageElement,
-    ) -> Result<String, RenderError> {
-        self.queue_element(OverlayElement::Image(image)).await
+        self.queue_element(OverlayElement(alert)).await
     }
 
     /// Get all active elements

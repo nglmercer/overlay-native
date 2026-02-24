@@ -9,31 +9,14 @@ use tokio::sync::{mpsc, RwLock};
 
 
 use crate::core::{
-    Badge, ChatMessageElement, CoreRenderer, GiftElement, GiftType,
-    ImageElement, MessageFilter,
+    Alert, AlertBuilder, Badge, CoreRenderer, MessageFilter, OverlayElement,
 };
 use crate::transport::schema::{
     BadgePayload, ChatMessagePayload, GiftPayload, ImagePayload, IncomingMessage,
 };
 use crate::transport::websocket::WsEvent;
 
-// Conversion logic moved from core to bridge (separation of concerns)
-
-impl From<ChatMessagePayload> for ChatMessageElement {
-    fn from(payload: ChatMessagePayload) -> Self {
-        Self {
-            id: payload.get_or_generate_id(),
-            username: payload.username.clone(),
-            display_name: payload.display_name.clone(),
-            content: payload.content.clone(),
-            user_color: payload.user_color.clone(),
-            badges: payload.badges.into_iter().map(|b| b.into()).collect(),
-            platform: payload.platform.clone(),
-            timestamp: std::time::SystemTime::now(),
-            metadata: payload.metadata,
-        }
-    }
-}
+// Conversion logic updated to target Alert directly
 
 impl From<BadgePayload> for Badge {
     fn from(payload: BadgePayload) -> Self {
@@ -42,51 +25,6 @@ impl From<BadgePayload> for Badge {
             name: payload.name.clone(),
             url: payload.url.clone(),
             title: payload.title.clone(),
-        }
-    }
-}
-
-impl From<GiftPayload> for GiftElement {
-    fn from(payload: GiftPayload) -> Self {
-        let gift_type = match payload.gift_type {
-            crate::transport::schema::GiftType::Subscription => GiftType::Subscription,
-            crate::transport::schema::GiftType::GiftSubscription => GiftType::GiftSubscription,
-            crate::transport::schema::GiftType::Bits => GiftType::Bits,
-            crate::transport::schema::GiftType::Cheer => GiftType::Cheer,
-            crate::transport::schema::GiftType::Donation => GiftType::Donation,
-            crate::transport::schema::GiftType::Other(s) => GiftType::Other(s),
-        };
-
-        Self {
-            id: format!(
-                "gift_{}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis()
-            ),
-            from_user: payload.from_user,
-            to_user: payload.to_user,
-            gift_type,
-            amount: payload.amount,
-            tier: payload.tier,
-            message: payload.message,
-            timestamp: std::time::SystemTime::now(),
-        }
-    }
-}
-
-impl From<ImagePayload> for ImageElement {
-    fn from(payload: ImagePayload) -> Self {
-        Self {
-            id: payload.id.clone(),
-            name: payload.name.clone(),
-            url: payload.url.clone(),
-            is_animated: payload.is_animated,
-            width: payload.width,
-            height: payload.height,
-            sender: payload.sender,
-            timestamp: std::time::SystemTime::now(),
         }
     }
 }
@@ -156,23 +94,28 @@ impl TransportBridge {
     pub async fn handle_incoming_message(&self, msg: IncomingMessage) -> Result<(), BridgeError> {
         match msg {
             IncomingMessage::ChatMessage(payload) => {
-                // Validate message
                 payload
                     .validate()
                     .map_err(|e| BridgeError::Validation(e.to_string()))?;
 
-                // Convert to core message
-                let chat_msg: ChatMessageElement = payload.into();
-                let id = chat_msg.id.clone();
+                let id = payload.get_or_generate_id();
+                let badges: Vec<Badge> = payload.badges.into_iter().map(|b| b.into()).collect();
+                
+                // Map to Generic Alert
+                let alert = Alert::chat(
+                    id.clone(),
+                    payload.username,
+                    payload.content,
+                    payload.user_color,
+                    badges,
+                );
 
-                // Queue in renderer
                 let renderer = self.renderer.read().await;
                 renderer
-                    .process_chat_message(chat_msg)
+                    .process_alert(alert)
                     .await
                     .map_err(|e| BridgeError::Render(e.to_string()))?;
 
-                // Emit event
                 if let Some(ref tx) = self.event_tx {
                     let _ = tx.send(BridgeEvent::MessageProcessed(id));
                 }
@@ -185,12 +128,28 @@ impl TransportBridge {
                     .validate()
                     .map_err(|e| BridgeError::Validation(e.to_string()))?;
 
-                let gift: GiftElement = payload.into();
-                let id = gift.id.clone();
+                let id = format!(
+                    "gift_{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis()
+                );
+                
+                let gift_desc = match payload.gift_type {
+                    crate::transport::schema::GiftType::Subscription => format!("a {} month sub", payload.amount.unwrap_or(1)),
+                    crate::transport::schema::GiftType::GiftSubscription => format!("a gifted sub"),
+                    crate::transport::schema::GiftType::Bits => format!("{} bits", payload.amount.unwrap_or(1)),
+                    crate::transport::schema::GiftType::Cheer => format!("a cheer"),
+                    crate::transport::schema::GiftType::Donation => format!("a donation"),
+                    crate::transport::schema::GiftType::Other(s) => s,
+                };
+
+                let alert = Alert::gift(id.clone(), payload.from_user, gift_desc, payload.message);
 
                 let renderer = self.renderer.read().await;
                 renderer
-                    .process_gift(gift)
+                    .process_alert(alert)
                     .await
                     .map_err(|e| BridgeError::Render(e.to_string()))?;
 
@@ -206,12 +165,15 @@ impl TransportBridge {
                     .validate()
                     .map_err(|e| BridgeError::Validation(e.to_string()))?;
 
-                let image: ImageElement = payload.into();
-                let id = image.id.clone();
+                let id = payload.id.clone();
+                let alert = AlertBuilder::new(&id)
+                    .with_image(payload.url)
+                    .with_styled_text(payload.name, None, Some("italic".to_string()))
+                    .build();
 
                 let renderer = self.renderer.read().await;
                 renderer
-                    .process_image(image)
+                    .process_alert(alert)
                     .await
                     .map_err(|e| BridgeError::Render(e.to_string()))?;
 
@@ -222,15 +184,7 @@ impl TransportBridge {
                 Ok(())
             }
 
-            IncomingMessage::Ping => {
-                // Ping is handled by the transport layer itself
-                Ok(())
-            }
-
-            IncomingMessage::Status => {
-                // Status request - handled by transport
-                Ok(())
-            }
+            IncomingMessage::Ping | IncomingMessage::Status => Ok(()),
         }
     }
 
