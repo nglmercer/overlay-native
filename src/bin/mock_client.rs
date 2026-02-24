@@ -10,6 +10,7 @@ use overlay_native::render::{
 use overlay_native::transport::{
     ChatMessagePayload, GiftPayload, GiftType as TransportGiftType, IncomingMessage,
 };
+use overlay_native::AlertTemplates;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use std::time::{Duration, Instant};
@@ -183,7 +184,7 @@ fn main() {
                             i, num_messages, payload.from_user
                         );
                         // Using our new premium pattern with Spanish text and an image
-                        overlay_native::core::AlertTemplates::premium_gift(
+                        AlertTemplates::premium_gift(
                             id.clone(),
                             payload.from_user,
                             payload.amount.unwrap_or(1).to_string(),

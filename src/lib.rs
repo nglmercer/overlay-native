@@ -64,9 +64,11 @@ pub mod transport;
 pub mod render;
 
 // Re-exports for convenience
+pub use core::builder::AlertBuilder;
+pub use core::patterns::AlertTemplates;
 pub use core::{
-    Alert, AlertBuilder, AlertContext, AlertRegistry, AlertTemplates, Badge, CoreRenderer,
-    FactoryInfo, OverlayElement, SharedAlertRegistry,
+    Alert, AlertContext, AlertRegistry, Badge, CoreRenderer, FactoryInfo, OverlayElement,
+    SharedAlertRegistry,
 };
 #[cfg(unix)]
 pub use render::GtkWindow;
