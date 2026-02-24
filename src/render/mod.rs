@@ -74,12 +74,7 @@ pub fn get_monitor_size() -> (i32, i32) {
     }
 
     #[cfg(windows)]
-    {
-        return win32::get_primary_monitor_geometry();
-    }
-
-    // Default fallback
-    (1920, 1080)
+    return win32::get_primary_monitor_geometry();
 }
 
 // Re-export platform-specific types
