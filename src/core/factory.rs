@@ -116,6 +116,22 @@ impl AlertContext {
         }
         ctx
     }
+
+    /// Get all data as strings for interpolation
+    pub fn data_as_strings(&self) -> HashMap<String, String> {
+        let mut result = HashMap::new();
+        for (k, v) in &self.data {
+            match v {
+                serde_json::Value::String(s) => {
+                    result.insert(k.clone(), s.clone());
+                }
+                _ => {
+                    result.insert(k.clone(), v.to_string());
+                }
+            }
+        }
+        result
+    }
 }
 
 /// Factory trait for creating alerts

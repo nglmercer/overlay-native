@@ -45,7 +45,27 @@ impl AppState {
 
         let core_renderer = CoreRenderer::new();
         let core_renderer_arc = Arc::new(RwLock::new(core_renderer));
+
+        // Registry for templates
+        let mut template_registry = crate::core::patterns::TemplateRegistry::new();
+        template_registry.register_defaults();
+
+        // Load templates from disk if configured
+        if let Some(ref dir) = config.display.templates_dir {
+            if let Err(e) = template_registry.load_from_dir(dir) {
+                eprintln!(
+                    "[TEMPLATES] Warning: Could not load templates from {}: {}",
+                    dir, e
+                );
+            }
+        }
+
         let bridge = Arc::new(TransportBridge::new(core_renderer_arc.read().await.clone()));
+
+        // Register templates in the bridge's alert registry
+        template_registry
+            .register_to_alert_registry(&bridge.get_alert_registry())
+            .await;
 
         Ok(Self {
             config,

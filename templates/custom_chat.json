@@ -1,0 +1,23 @@
+{
+  "name": "custom_chat",
+  "layout": "horizontal",
+  "components": [
+    {
+      "type": "text",
+      "content": "[{{username}}]: ",
+      "color": "#00ff00",
+      "weight": "bold"
+    },
+    {
+      "type": "text",
+      "content": "{{content}}",
+      "color": "#ffffff"
+    }
+  ],
+  "style": {
+    "background_color": "rgba(30, 30, 30, 0.9)",
+    "border_radius": 10,
+    "padding": 15
+  },
+  "default_duration": 8
+}

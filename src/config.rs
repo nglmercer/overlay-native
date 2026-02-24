@@ -33,6 +33,7 @@ pub struct DisplayConfig {
     pub username_color: String,
     pub border_radius: u32,
     pub opacity: f32,
+    pub templates_dir: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -89,7 +90,43 @@ impl Config {
     }
 
     pub fn load_default() -> Result<Self, ConfigError> {
-        Self::load_with_fallback("config.json")
+        Self::load_modular().or_else(|_| Self::load_with_fallback("config.json"))
+    }
+
+    pub fn load_modular() -> Result<Self, ConfigError> {
+        let config_dir = Path::new("config");
+        if !config_dir.exists() {
+            return Err(ConfigError::File("Config directory not found".into()));
+        }
+
+        let mut config = Self::default();
+
+        if let Ok(transport) =
+            Self::load_part::<TransportConfig, _>(config_dir.join("transport.json"))
+        {
+            config.transport = transport;
+            println!("[CONFIG] Loaded transport.json");
+        }
+        if let Ok(window) = Self::load_part::<WindowConfig, _>(config_dir.join("window.json")) {
+            config.window = window;
+            println!("[CONFIG] Loaded window.json");
+        }
+        if let Ok(display) = Self::load_part::<DisplayConfig, _>(config_dir.join("display.json")) {
+            config.display = display;
+            println!("[CONFIG] Loaded display.json");
+        }
+        if let Ok(logging) = Self::load_part::<LoggingConfig, _>(config_dir.join("logging.json")) {
+            config.logging = logging;
+            println!("[CONFIG] Loaded logging.json");
+        }
+
+        config.validate()?;
+        Ok(config)
+    }
+
+    fn load_part<T: for<'de> Deserialize<'de>, P: AsRef<Path>>(path: P) -> Result<T, ConfigError> {
+        let content = fs::read_to_string(path).map_err(|e| ConfigError::File(e.to_string()))?;
+        serde_json::from_str(&content).map_err(|e| ConfigError::Parse(e.to_string()))
     }
 
     pub fn load_with_fallback<P: AsRef<Path>>(external_path: P) -> Result<Self, ConfigError> {
@@ -165,6 +202,7 @@ impl Default for Config {
                 username_color: "#00ff00".to_string(),
                 border_radius: 8,
                 opacity: 0.9,
+                templates_dir: Some("templates".to_string()),
             },
             logging: LoggingConfig {
                 level: LogLevel::Info,

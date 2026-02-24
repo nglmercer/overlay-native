@@ -4,7 +4,190 @@
 //! ensuring consistency across different platforms and providers.
 
 use super::builder::AlertBuilder;
-use super::message::{Alert, AlertStyle, Badge, Layout};
+use super::message::{Alert, AlertComponent, AlertStyle, Badge, Layout};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlertTemplate {
+    pub name: String,
+    pub layout: Layout,
+    pub components: Vec<AlertComponent>,
+    pub style: AlertStyle,
+    pub default_duration: Option<u64>,
+}
+
+#[derive(Clone)]
+pub struct TemplateRegistry {
+    templates: HashMap<String, AlertTemplate>,
+}
+
+impl Default for TemplateRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TemplateRegistry {
+    pub fn new() -> Self {
+        Self {
+            templates: HashMap::new(),
+        }
+    }
+
+    pub fn load_from_dir<P: AsRef<Path>>(&mut self, path: P) -> Result<(), String> {
+        if !path.as_ref().exists() {
+            return Err(format!(
+                "Templates directory not found: {:?}",
+                path.as_ref()
+            ));
+        }
+
+        for entry in fs::read_dir(path).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+                let template: AlertTemplate =
+                    serde_json::from_str(&content).map_err(|e| e.to_string())?;
+                println!("[TEMPLATES] Loaded template: {}", template.name);
+                self.templates.insert(template.name.clone(), template);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn render(
+        &self,
+        name: &str,
+        id: String,
+        context: &HashMap<String, String>,
+    ) -> Option<Alert> {
+        let template = self.templates.get(name)?;
+        let mut builder = AlertBuilder::new(id).with_layout(template.layout.clone());
+
+        for component in &template.components {
+            match component {
+                AlertComponent::Text {
+                    content,
+                    color,
+                    weight,
+                    style,
+                    size: _,
+                } => {
+                    let mut final_content = content.clone();
+                    for (key, value) in context {
+                        final_content = final_content.replace(&format!("{{{{{}}}}}", key), value);
+                    }
+
+                    // Also interpolate color if it's a placeholder
+                    let final_color = color.as_ref().map(|c| {
+                        let mut cc = c.clone();
+                        for (key, value) in context {
+                            cc = cc.replace(&format!("{{{{{}}}}}", key), value);
+                        }
+                        cc
+                    });
+
+                    builder = builder.with_styled_text(
+                        final_content,
+                        final_color,
+                        weight.clone(),
+                        style.clone(),
+                    );
+                }
+                AlertComponent::Image {
+                    url,
+                    width: _,
+                    height: _,
+                    is_animated: _,
+                } => {
+                    let mut final_url = url.clone();
+                    for (key, value) in context {
+                        final_url = final_url.replace(&format!("{{{{{}}}}}", key), value);
+                    }
+                    builder = builder.with_image(final_url);
+                }
+                AlertComponent::Badge { id, name, url } => {
+                    // Badges can also be interpolated if needed, but usually passed via context
+                    // For now handle simple case
+                    builder = builder.with_badge(id.clone(), name.clone(), url.clone());
+                }
+            }
+        }
+
+        builder = builder.with_style(template.style.clone());
+        if let Some(d) = template.default_duration {
+            builder = builder.with_duration(d);
+        }
+
+        Some(builder.build())
+    }
+
+    pub fn register_defaults(&mut self) {
+        // Register modern_chat
+        self.templates.insert(
+            "modern_chat".to_string(),
+            AlertTemplate {
+                name: "modern_chat".to_string(),
+                layout: Layout::Horizontal,
+                components: vec![
+                    // Badges would be added dynamically in the old system,
+                    // but here we can define a placeholder for them if we want,
+                    // or just rely on the fact that badge component exists.
+                    AlertComponent::Text {
+                        content: "{{username}}: ".to_string(),
+                        color: Some("{{color}}".to_string()),
+                        weight: Some("bold".to_string()),
+                        style: None,
+                        size: None,
+                    },
+                    AlertComponent::Text {
+                        content: "{{content}}".to_string(),
+                        color: None,
+                        weight: None,
+                        style: None,
+                        size: None,
+                    },
+                ],
+                style: AlertStyle {
+                    padding: Some(12),
+                    border_radius: Some(8),
+                    background_color: Some("rgba(0, 0, 0, 0.7)".to_string()),
+                    ..Default::default()
+                },
+                default_duration: None,
+            },
+        );
+
+        // Add other defaults as needed...
+    }
+
+    pub async fn register_to_alert_registry(
+        &self,
+        alert_registry: &crate::core::SharedAlertRegistry,
+    ) {
+        for name in self.templates.keys() {
+            let name_clone = name.clone();
+            let self_clone = self.clone();
+            alert_registry
+                .register(name_clone.clone(), move |ctx| {
+                    self_clone
+                        .render(&name_clone, ctx.id.clone(), &ctx.data_as_strings())
+                        .unwrap_or_else(|| {
+                            // Fallback if template disappeared (unlikely)
+                            AlertBuilder::new(&ctx.id)
+                                .with_text("Template error")
+                                .build()
+                        })
+                })
+                .await;
+        }
+    }
+}
 
 pub struct AlertTemplates;
 

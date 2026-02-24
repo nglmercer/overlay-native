@@ -1,0 +1,13 @@
+{
+  "monitor_margin": 50,
+  "window_size": 250,
+  "grid_size": 120,
+  "font_family": "Inter",
+  "font_size": 16,
+  "background_color": "#121212",
+  "text_color": "#f0f0f0",
+  "username_color": "#ff00ff",
+  "border_radius": 12,
+  "opacity": 0.85,
+  "templates_dir": "templates"
+}
