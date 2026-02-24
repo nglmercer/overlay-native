@@ -98,6 +98,7 @@ impl GtkWindow {
                     content,
                     color,
                     weight,
+                    style,
                     size,
                 } => {
                     let label = gtk::Label::new(None);
@@ -109,9 +110,11 @@ impl GtkWindow {
                     if let Some(w) = weight {
                         markup.push_str(&format!(" weight=\"{}\"", w));
                     }
-                    if let Some(s) = size {
-                        markup.push_str(&format!(" font_size=\"{}\"", s * 1024));
-                        // Pango uses 1/1024 points
+                    if let Some(s) = style {
+                        markup.push_str(&format!(" style=\"{}\"", s));
+                    }
+                    if let Some(sz) = size {
+                        markup.push_str(&format!(" font_size=\"{}\"", sz * 1024));
                     }
 
                     markup.push_str(&format!(
@@ -122,11 +125,36 @@ impl GtkWindow {
                     label.set_line_wrap(true);
                     layout.add(&label);
                 }
-                crate::core::AlertComponent::Image { width, height, .. } => {
+                crate::core::AlertComponent::Image {
+                    url,
+                    width,
+                    height,
+                    ..
+                } => {
                     let image = gtk::Image::new();
-                    if let (&Some(w), &Some(h)) = (width, height) {
-                        image.set_size_request(w as i32, h as i32);
+                    let w = width.unwrap_or(64) as i32;
+                    let h = height.unwrap_or(64) as i32;
+
+                    // Basic blocking image load for demo purposes
+                    if url.starts_with("http") {
+                        if let Ok(resp) = reqwest::blocking::get(url) {
+                            if let Ok(bytes) = resp.bytes() {
+                                let loader = gdk_pixbuf::PixbufLoader::new();
+                                if loader.write(&bytes).is_ok() && loader.close().is_ok() {
+                                    if let Some(pixbuf) = loader.pixbuf() {
+                                        let scaled = pixbuf.scale_simple(
+                                            w,
+                                            h,
+                                            gdk_pixbuf::InterpType::Bilinear,
+                                        );
+                                        image.set_from_pixbuf(scaled.as_ref());
+                                    }
+                                }
+                            }
+                        }
                     }
+
+                    image.set_size_request(w, h);
                     layout.add(&image);
                 }
                 crate::core::AlertComponent::Badge { url, name, .. } => {

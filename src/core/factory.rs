@@ -65,12 +65,16 @@ impl AlertContext {
 
     /// Get a string value from context
     pub fn get_string(&self, key: &str) -> Option<String> {
-        self.data.get(key).and_then(|v| v.as_str().map(String::from))
+        self.data
+            .get(key)
+            .and_then(|v| v.as_str().map(String::from))
     }
 
     /// Get a typed value from context
     pub fn get<T: serde::de::DeserializeOwned>(&self, key: &str) -> Option<T> {
-        self.data.get(key).and_then(|v| serde_json::from_value(v.clone()).ok())
+        self.data
+            .get(key)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
     /// Get a value as a specific type, or use a default
@@ -169,7 +173,7 @@ impl AlertRegistry {
     }
 
     /// Register a new alert factory with a closure
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// registry.register("chat_message", |ctx| {
@@ -303,8 +307,10 @@ impl AlertRegistry {
         // Register default chat alert
         self.register("chat_message", |ctx| {
             // Support both 'color' and 'user_color' for flexibility
-            let color = ctx.get::<String>("user_color").or_else(|| ctx.get::<String>("color"));
-            
+            let color = ctx
+                .get::<String>("user_color")
+                .or_else(|| ctx.get::<String>("color"));
+
             Alert::chat(
                 ctx.id.clone(),
                 ctx.get_or("username"),
@@ -316,45 +322,68 @@ impl AlertRegistry {
 
         // Register default gift alert
         self.register("gift", |ctx| {
-            let from = ctx.get::<String>("from_user").or_else(|| ctx.get::<String>("from")).unwrap_or_else(|| "Anonymous".to_string());
-            
+            let from = ctx
+                .get::<String>("from_user")
+                .or_else(|| ctx.get::<String>("from"))
+                .unwrap_or_else(|| "Anonymous".to_string());
+
             // Reconstruct gift description if types are provided
-            let gift_desc = ctx.get::<String>("gift_desc").or_else(|| {
-                ctx.get::<String>("gift_type").map(|t| {
-                    let amount = ctx.get::<u32>("amount").unwrap_or(1);
-                    format!("{} x{}", t, amount)
+            let gift_desc = ctx
+                .get::<String>("gift_desc")
+                .or_else(|| {
+                    ctx.get::<String>("gift_type").map(|t| {
+                        let amount = ctx.get::<u32>("amount").unwrap_or(1);
+                        format!("{} x{}", t, amount)
+                    })
                 })
-            }).unwrap_or_else(|| "a gift".to_string());
+                .unwrap_or_else(|| "a gift".to_string());
 
             let message = ctx.get_string("message");
-            
+
             Alert::gift(ctx.id.clone(), from, gift_desc, message)
+        });
+
+        // Register premium gift alert (using the Spanish template example)
+        self.register("gift_premium", |ctx| {
+            let from = ctx.get::<String>("from_user").unwrap_or_else(|| "Anonymous".to_string());
+            let amount = ctx.get::<u32>("amount").unwrap_or(1).to_string();
+            let gift_name = ctx.get::<String>("gift_name").or_else(|| ctx.get::<String>("gift_type")).unwrap_or_else(|| "gift".to_string());
+            let image_url = ctx.get_string("image_url");
+            
+            crate::core::patterns::AlertTemplates::premium_gift(
+                ctx.id.clone(),
+                from,
+                amount,
+                gift_name,
+                image_url,
+            )
         });
 
         // Register default image alert
         self.register("image", |ctx| {
             let url = ctx.get_or::<String>("url");
             let name = ctx.get_or::<String>("name");
-            
+
             AlertBuilder::new(&ctx.id)
                 .with_image(url)
-                .with_styled_text(name, None, Some("italic".to_string()))
+                .with_styled_text(name, None, None, Some("italic".to_string()))
                 .build()
         });
 
         // Register a custom/fallback alert type
         self.register("custom", |ctx| {
             let mut builder = AlertBuilder::new(&ctx.id);
-            
+
             // Add any text components found in the data
             for (key, value) in ctx.data() {
                 if let Some(text) = value.as_str() {
                     if key != "id" && key != "type" {
-                        builder = builder.with_styled_text(format!("{}: {}", key, text), None, None);
+                        builder =
+                            builder.with_styled_text(format!("{}: {}", key, text), None, None, None);
                     }
                 }
             }
-            
+
             builder.build()
         });
 
@@ -470,9 +499,7 @@ mod tests {
         let mut registry = AlertRegistry::new();
 
         registry.register("test", |ctx| {
-            AlertBuilder::new(&ctx.id)
-                .with_text("Test alert")
-                .build()
+            AlertBuilder::new(&ctx.id).with_text("Test alert").build()
         });
 
         let context = AlertContext::new("alert_1");
@@ -488,7 +515,11 @@ mod tests {
         registry.register("greeting", |ctx| {
             let name = ctx.get_or::<String>("name");
             AlertBuilder::new(&ctx.id)
-                .with_styled_text(format!("Hello, {}!", name), Some("#00FF00".to_string()), Some("bold".to_string()))
+                .with_styled_text(
+                    format!("Hello, {}!", name),
+                    Some("#00FF00".to_string()),
+                    Some("bold".to_string()),
+                )
                 .build()
         });
 
@@ -513,10 +544,14 @@ mod tests {
         });
 
         // Should use "special" factory
-        let alert1 = registry.create_or_default("special", AlertContext::new("1")).unwrap();
-        
+        let alert1 = registry
+            .create_or_default("special", AlertContext::new("1"))
+            .unwrap();
+
         // Should fall back to "default" factory
-        let alert2 = registry.create_or_default("nonexistent", AlertContext::new("2")).unwrap();
+        let alert2 = registry
+            .create_or_default("nonexistent", AlertContext::new("2"))
+            .unwrap();
 
         assert_eq!(alert1.components.len(), 1);
         assert_eq!(alert2.components.len(), 1);

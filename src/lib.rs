@@ -65,8 +65,8 @@ pub mod render;
 
 // Re-exports for convenience
 pub use core::{
-    Alert, AlertBuilder, AlertContext, AlertRegistry, AlertTemplates, Badge, 
-    CoreRenderer, FactoryInfo, OverlayElement, SharedAlertRegistry,
+    Alert, AlertBuilder, AlertContext, AlertRegistry, AlertTemplates, Badge, CoreRenderer,
+    FactoryInfo, OverlayElement, SharedAlertRegistry,
 };
 #[cfg(unix)]
 pub use render::GtkWindow;

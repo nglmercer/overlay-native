@@ -4,7 +4,7 @@
 //! and the core renderer. It converts validated transport messages to core elements
 //! and forwards them to the renderer.
 //!
-//! The bridge now supports dynamic alert creation via [`AlertRegistry`]. 
+//! The bridge now supports dynamic alert creation via [`AlertRegistry`].
 //! You can register custom alert factories and use them to create alerts
 //! based on incoming message types.
 
@@ -12,10 +12,9 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
 use crate::core::{
-    Alert, AlertBuilder, AlertContext, AlertRegistry, Badge, CoreRenderer, 
-    MessageFilter, SharedAlertRegistry,
+    AlertContext, AlertRegistry, Badge, CoreRenderer, MessageFilter, SharedAlertRegistry,
 };
-use crate::transport::schema::{BadgePayload, IncomingMessage};
+use crate::transport::schema::BadgePayload;
 use crate::transport::websocket::WsEvent;
 
 // Conversion logic updated to target Alert directly
@@ -96,7 +95,7 @@ impl TransportBridge {
     }
 
     /// Register a custom alert factory
-    /// 
+    ///
     /// # Example
     /// ```ignore
     /// bridge.register_alert_factory("my_custom", |ctx| {
@@ -113,7 +112,7 @@ impl TransportBridge {
     }
 
     /// Create and process an alert using the registry
-    /// 
+    ///
     /// # Example
     /// ```ignore
     /// let context = AlertContext::with_data("alert_1", [
@@ -132,7 +131,9 @@ impl TransportBridge {
             .alert_registry
             .create_or_default(alert_type, context)
             .await
-            .ok_or_else(|| BridgeError::Config(format!("No factory registered for: {}", alert_type)))?;
+            .ok_or_else(|| {
+                BridgeError::Config(format!("No factory registered for: {}", alert_type))
+            })?;
 
         let id = alert.id.clone();
 

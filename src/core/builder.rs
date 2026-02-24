@@ -33,6 +33,7 @@ impl AlertBuilder {
             content: text.into(),
             color: None,
             weight: None,
+            style: None,
             size: None,
         });
         self
@@ -44,11 +45,13 @@ impl AlertBuilder {
         text: impl Into<String>,
         color: Option<String>,
         weight: Option<String>,
+        style: Option<String>,
     ) -> Self {
         self.components.push(AlertComponent::Text {
             content: text.into(),
             color,
             weight,
+            style,
             size: None,
         });
         self

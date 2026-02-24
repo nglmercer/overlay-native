@@ -65,6 +65,7 @@ impl Alert {
             content: username,
             color,
             weight: Some("bold".to_string()),
+            style: None,
             size: None,
         });
 
@@ -74,6 +75,7 @@ impl Alert {
             content,
             color: None,
             weight: None,
+            style: None,
             size: None,
         });
 
@@ -96,6 +98,7 @@ impl Alert {
             content: format!("🎁 {} gifted {}!", from, gift_desc),
             color: Some("#ffd700".to_string()), // Gold
             weight: Some("bold".to_string()),
+            style: None,
             size: Some(16),
         });
 
@@ -104,6 +107,7 @@ impl Alert {
                 content: msg,
                 color: None,
                 weight: None,
+                style: None,
                 size: None,
             });
         }
@@ -133,6 +137,7 @@ pub enum AlertComponent {
         content: String,
         color: Option<String>,
         weight: Option<String>,
+        style: Option<String>,
         size: Option<u32>,
     },
     /// Image component (supports GIFs)

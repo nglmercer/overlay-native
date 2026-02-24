@@ -127,13 +127,26 @@ fn main() {
         font_size: 14,
     };
 
-    let num_messages = 5;
+    let num_messages = 6; // Increased to show premium gift
 
     #[cfg(unix)]
     let mut active_windows: Vec<(String, GtkWindow, Instant)> = Vec::new();
 
     for i in 1..=num_messages {
-        let message = create_random_message();
+        // Force last message to be a premium gift for demonstration
+        let message = if i == num_messages {
+            IncomingMessage::Gift(GiftPayload {
+                from_user: "JuanAlberto".to_string(),
+                to_user: None,
+                gift_type: TransportGiftType::Other("Cofre Legendario".to_string()),
+                amount: Some(5),
+                tier: None,
+                message: None,
+                platform: Some("mock".to_string()),
+            })
+        } else {
+            create_random_message()
+        };
 
         match message {
             IncomingMessage::ChatMessage(payload) => {
@@ -160,14 +173,39 @@ fn main() {
                 }
             }
             IncomingMessage::Gift(payload) => {
-                println!(
-                    "🎁 [{}/{}] Gift from {}",
-                    i, num_messages, payload.from_user
-                );
-
                 let id = format!("gift_{}", i);
-                let gift_desc = format!("a sub");
-                let alert = Alert::gift(id.clone(), payload.from_user, gift_desc, payload.message);
+                
+                // Check if it's our special premium gift
+                let alert = if let TransportGiftType::Other(ref name) = payload.gift_type {
+                    if name == "Cofre Legendario" {
+                        println!(
+                            "🎁 [{}/{}] PREMIUM GIFT from {}",
+                            i, num_messages, payload.from_user
+                        );
+                        // Using our new premium pattern with Spanish text and an image
+                        overlay_native::core::AlertTemplates::premium_gift(
+                            id.clone(),
+                            payload.from_user,
+                            payload.amount.unwrap_or(1).to_string(),
+                            "Cofres Legendarios".to_string(),
+                            Some("https://img.icons8.com/isometric/512/gift.png".to_string()) // Premium gift icon
+                        )
+                    } else {
+                        println!(
+                            "🎁 [{}/{}] Gift from {}",
+                            i, num_messages, payload.from_user
+                        );
+                        let gift_desc = format!("a {}", name);
+                        Alert::gift(id.clone(), payload.from_user, gift_desc, payload.message)
+                    }
+                } else {
+                    println!(
+                        "🎁 [{}/{}] Gift from {}",
+                        i, num_messages, payload.from_user
+                    );
+                    let gift_desc = format!("a sub");
+                    Alert::gift(id.clone(), payload.from_user, gift_desc, payload.message)
+                };
 
                 #[cfg(unix)]
                 {
